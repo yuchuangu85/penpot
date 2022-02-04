@@ -15,6 +15,7 @@
 
 (def component-sync-attrs
   {:name                  :name-group
+   :fills                 :fill-group
    :fill-color            :fill-group
    :fill-opacity          :fill-group
    :fill-color-gradient   :fill-group

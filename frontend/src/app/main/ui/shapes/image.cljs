@@ -20,19 +20,8 @@
   [props]
 
   (let [shape (unchecked-get props "shape")
-        {:keys [x y width height metadata]} shape
-        uri   (cfg/resolve-file-media metadata)
-        embed (embed/use-data-uris [uri])
-
+        {:keys [x y width height]} shape
         transform (gsh/transform-matrix shape)
-
-        fill-attrs (-> (attrs/extract-fill-attrs shape)
-                       (obj/set! "width" width)
-                       (obj/set! "height" height))
-
-        render-id  (mf/use-ctx muc/render-ctx)
-        fill-image-id (str "fill-image-" render-id)
-        shape (assoc shape :fill-image fill-image-id)
         props (-> (attrs/extract-style-attrs shape)
                   (obj/merge! (attrs/extract-border-radius-attrs shape))
                   (obj/merge!
@@ -44,19 +33,6 @@
         path? (some? (.-d props))]
 
     [:g
-      [:defs
-       [:pattern {:id fill-image-id
-                  :patternUnits "userSpaceOnUse"
-                  :x x
-                  :y y
-                  :height height
-                  :width width
-                  :data-loading (str (not (contains? embed uri)))}
-        [:g
-         [:> :rect fill-attrs]
-         [:image {:xlinkHref (get embed uri uri)
-                  :width width
-                  :height height}]]]]
      [:& shape-custom-stroke {:shape shape}
       (if path?
         [:> :path props]

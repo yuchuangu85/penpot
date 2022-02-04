@@ -6,7 +6,12 @@
 
 (ns app.main.ui.workspace.sidebar.options.menus.fill
   (:require
+   [app.common.attrs :as attrs]
+   [app.common.colors :as clr]
+   [app.common.data :as d]
    [app.common.pages :as cp]
+   [app.common.uuid :as uuid]
+   [app.main.data.workspace.changes :as dch]
    [app.main.data.workspace.colors :as dc]
    [app.main.store :as st]
    [app.main.ui.icons :as i]
@@ -14,10 +19,12 @@
    [app.util.color :as uc]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer [tr]]
+   [cuerdas.core :as str]
    [rumext.alpha :as mf]))
 
 (def fill-attrs
-  [:fill-color
+  [:fills
+   :fill-color
    :fill-opacity
    :fill-color-ref-id
    :fill-color-ref-file
@@ -27,56 +34,105 @@
 (def fill-attrs-shape
   (conj fill-attrs :hide-fill-on-export))
 
+;; (defn create-fill []
+;;   (let [id (uuid/next)]
+;;     {:id id
+;;      :fill-color cp/default-color
+;;      :fill-color-gradient nil
+;;      ::fill-color-ref-file nil
+;;      :fill-color-ref-id nil
+;;      :fill-opacity 1}))
+
+(defn color-values
+  [color]
+  {:color (:fill-color color)
+   :opacity (:fill-opacity color)
+   :id (:fill-color-ref-id color)
+   :file-id (:fill-color-ref-file color)
+   :gradient (:fill-color-gradient color)})
+
 (mf/defc fill-menu
   {::mf/wrap [#(mf/memo' % (mf/check-props ["ids" "values"]))]}
   [{:keys [ids type values disable-remove?] :as props}]
-  (let [show? (or (not (nil? (:fill-color values)))
-                  (not (nil? (:fill-color-gradient values))))
-
-        label (case type
+  (let [label (case type
                 :multiple (tr "workspace.options.selection-fill")
                 :group (tr "workspace.options.group-fill")
                 (tr "workspace.options.fill"))
 
-        color {:color (:fill-color values)
-               :opacity (:fill-opacity values)
-               :id (:fill-color-ref-id values)
-               :file-id (:fill-color-ref-file values)
-               :gradient (:fill-color-gradient values)}
+        ;; Excluding nil values
+        values (->> values
+                    (remove (comp nil? val))
+                    (into {}))
+
+        only-shapes? (and (contains? values :fills)
+                          ;; texts have :fill-* attributes, the rest of the shapes have :fills
+                          (= (count (filter #(str/starts-with? (str %) ":fill-") (keys values))) 0))
+
+        k1 (if (vector? (:fills values))
+             (concat (:fills values) [(dissoc values :fills)])
+             values)
+        kk (attrs/get-attrs-multi k1 [:fill-color :fill-opacity :fill-color-ref-id :fill-color-ref-file :fill-color-gradient])
+
+        kk (if (empty? kk)
+             values
+             kk)
+
+        _ (println "values" values)
+        _ (println "(keys values)" (keys values))
+        _ (println "kk" kk)
 
         hide-fill-on-export? (:hide-fill-on-export values false)
 
         checkbox-ref (mf/use-ref)
+        multiple-fill? (some? (:fills values))
+
+        _ (println "only-shapes?" only-shapes?)
 
         on-add
         (mf/use-callback
          (mf/deps ids)
          (fn [_]
-           (st/emit! (dc/change-fill ids {:color cp/default-color
-                                          :opacity 1}))))
+           (st/emit! (dc/add-fill ids {:color cp/default-color
+                                       :opacity 1}))))
 
         on-delete
         (mf/use-callback
          (mf/deps ids)
          (fn [_]
-           (st/emit! (dc/change-fill ids (into {} uc/empty-color)))))
+           (st/emit! (dc/change-fill ids (into {} uc/empty-color) 0))))
 
         on-change
         (mf/use-callback
          (mf/deps ids)
-         (fn [color]
-           (let [remove-multiple (fn [[_ value]] (not= value :multiple))
-                 color (into {} (filter remove-multiple) color)]
-             (st/emit! (dc/change-fill ids color)))))
+         (fn [index]
+           (fn [color]
+             (st/emit! (dc/change-fill ids color index)))))
 
-        on-detach
+        on-change-mixed-shapes
         (mf/use-callback
          (mf/deps ids)
-         (fn []
-           (let [remove-multiple (fn [[_ value]] (not= value :multiple))
-                 color (-> (into {} (filter remove-multiple) color)
-                           (assoc :id nil :file-id nil))]
-             (st/emit! (dc/change-fill ids color)))))
+         (fn [color]
+           (st/emit! (dc/change-fill-and-clear ids color))))
+
+        on-remove
+        (fn [index]
+          (fn []
+            (st/emit! (dc/remove-fill ids {:color cp/default-color
+                                           :opacity 1} index))))
+        on-remove-all
+        (fn [_]
+          (st/emit! (dc/remove-all-fills ids {:color clr/black
+                                              :opacity 1})))
+
+        ;; TODO Fix
+        ;; on-detach
+        ;; (mf/use-callback
+        ;;  (mf/deps ids)
+        ;;  (fn []
+        ;;    (let [remove-multiple (fn [[_ value]] (not= value :multiple))
+        ;;          color (-> (into {} (filter remove-multiple) color)
+        ;;                    (assoc :id nil :file-id nil))]
+        ;;      (st/emit! (dc/change-fill ids color)))))
 
         on-change-show-fill-on-export
         (mf/use-callback
@@ -95,18 +151,49 @@
              (dom/set-attribute checkbox "indeterminate" true)
              (dom/remove-attribute checkbox "indeterminate")))))
 
-    (if show?
       [:div.element-set
        [:div.element-set-title
         [:span label]
-        (when (not disable-remove?)
-         [:div.add-page {:on-click on-delete} i/minus])]
+        (when (and (not disable-remove?) (not (= :multiple (:fills values))) only-shapes?)
+          [:div.add-page {:on-click on-add} i/close])]
 
        [:div.element-set-content
-        [:& color-row {:color color
-                       :title (tr "workspace.options.fill")
-                       :on-change on-change
-                       :on-detach on-detach}]
+
+        (if only-shapes?
+          (cond
+            (= :multiple (:fills values))
+              ;; varios borrar
+              ;; (contains? (set (vals values)) :multiple)
+            [:div.element-set-options-group
+             [:div.element-set-label (tr "settings.multiple")]
+             [:div.element-set-actions
+              [:div.element-set-actions-button {:on-click on-remove-all}
+               i/minus]]]
+
+            (seq (:fills values))
+            (for [[index value] (d/enumerate (:fills values []))]
+              [:div
+               [:& color-row {:color {:color (:fill-color value)
+                                      :opacity (:fill-opacity value)
+                                      :id (:fill-color-ref-id value)
+                                      :file-id (:fill-color-ref-file value)
+                                      :gradient (:fill-color-gradient value)}
+                              :title (tr "workspace.options.fill")
+                              :on-change (on-change index)
+                          ;; :on-detach on-detach
+                              :on-remove (on-remove index)}]]))
+          ;; varios editar
+          ;;:else
+          [:& color-row {:color {:color (:fill-color kk)
+                                 :opacity (:fill-opacity kk)
+                                 :id (:fill-color-ref-id kk)
+                                 :file-id (:fill-color-ref-file kk)
+                                 :gradient (:fill-color-gradient kk)}
+                         :title (tr "workspace.options.fill")
+                         :on-change on-change-mixed-shapes
+                          ;; :on-detach on-detach
+                         }])
+
 
         (when (or (= type :frame)
                   (and (= type :multiple) (some? hide-fill-on-export?)))
@@ -119,8 +206,4 @@
 
            [:label {:for "show-fill-on-export"}
             (tr "workspace.options.show-fill-on-export")]])]]
-
-      [:div.element-set
-       [:div.element-set-title
-        [:span label]
-        [:div.add-page {:on-click on-add} i/close]]])))
+      ))

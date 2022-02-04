@@ -61,7 +61,7 @@
   (if (= v :multiple) nil v))
 
 (mf/defc color-row
-  [{:keys [color disable-gradient disable-opacity on-change on-detach on-open on-close title]}]
+  [{:keys [color disable-gradient disable-opacity on-change on-detach on-open on-close title on-remove]}]
   (let [current-file-id (mf/use-ctx ctx/current-file-id)
         file-colors     (mf/deref refs/workspace-file-colors)
         shared-libs     (mf/deref refs/workspace-libraries)
@@ -167,5 +167,7 @@
                               :on-click select-all
                               :on-change handle-opacity-change
                               :min 0
-                              :max 100}]])])]))
+                              :max 100}]])])
+     (when (some? on-remove)
+       [:div.element-set-actions-button {:on-click on-remove} i/minus])]))
 

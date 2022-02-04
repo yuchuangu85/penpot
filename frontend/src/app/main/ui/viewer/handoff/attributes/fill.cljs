@@ -6,6 +6,7 @@
 
 (ns app.main.ui.viewer.handoff.attributes.fill
   (:require
+   [app.common.data :as d]
    [app.main.ui.components.copy-button :refer [copy-button]]
    [app.main.ui.viewer.handoff.attributes.common :refer [color-row]]
    [app.util.code-gen :as cg]
@@ -26,7 +27,8 @@
   (and
    (not (contains? #{:text :group} (:type shape)))
    (or (:fill-color shape)
-       (:fill-color-gradient shape))))
+       (:fill-color-gradient shape)
+       (seq (:fills shape)))))
 
 (defn copy-data [shape]
   (cg/generate-css-props
@@ -55,5 +57,9 @@
           [:& copy-button {:data (copy-data (first shapes))}])]
 
        (for [shape shapes]
-         [:& fill-block {:key (str "fill-block-" (:id shape))
-                         :shape shape}])])))
+         (if (seq (:fills shape))
+           (for [[index value] (d/enumerate (:fills shape []))]
+             [:& fill-block {:key (str "fill-block-" (:id shape))
+                             :shape value}])
+           [:& fill-block {:key (str "fill-block-" (:id shape))
+                           :shape shape}]))])))

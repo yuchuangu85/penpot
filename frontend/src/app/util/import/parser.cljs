@@ -361,13 +361,11 @@
 (defn add-fill
   [props node svg-data]
 
-  (let [fill (:fill svg-data)
+  (let [
+        fill (:fill svg-data)
         hide-fill-on-export (get-meta node :hide-fill-on-export str->bool)
         gradient (when (str/starts-with? fill "url")
-                   (parse-gradient node fill))
-        meta-fill-color (get-meta node :fill-color)
-        meta-fill-opacity (get-meta node :fill-opacity)
-        meta-fill-color-gradient (get-meta node :fill-color-gradient)]
+                   (parse-gradient node fill))]
 
     (cond-> props
       :always
@@ -384,16 +382,7 @@
              :fill-opacity (-> svg-data (:fill-opacity "1") d/parse-double))
 
       (some? hide-fill-on-export)
-      (assoc :hide-fill-on-export hide-fill-on-export)
-
-      (some? meta-fill-color)
-      (assoc :fill-color meta-fill-color
-             :fill-opacity (d/parse-double meta-fill-opacity))
-
-      (some? meta-fill-color-gradient)
-      (assoc :fill-color-gradient meta-fill-color-gradient
-             :fill-color nil
-             :fill-opacity nil))))
+      (assoc :hide-fill-on-export hide-fill-on-export))))
 
 (defn add-stroke
   [props node svg-data]
@@ -658,6 +647,25 @@
 
       props)))
 
+
+
+(defn add-fills
+  [props node svg-data]
+  (let [#_(println "add-fils node" node)
+        #_(println "add-fils svg-data" svg-data)
+        fills (-> node
+                  (find-node :defs)
+                  (find-node :pattern)
+                  (find-node :g)
+                  (find-all-nodes :rect)
+                  (reverse))
+        fills (map #(add-fill {} node (get-svg-data :rect %)) fills)]
+      (-> props
+          (assoc :fills fills))))
+
+
+
+
 (defn add-svg-content
   [props node]
   (let [svg-content (get-data node :penpot:svg-content)
@@ -762,6 +770,7 @@
           (add-exports node)
           (add-svg-attrs node svg-data)
           (add-library-refs node)
+          (add-fills node svg-data)
 
           (cond-> (= :svg-raw type)
             (add-svg-content node))

@@ -12,11 +12,11 @@
    [app.main.ui.shapes.attrs :as attrs]
    [app.main.ui.shapes.custom-stroke :as cs]
    [app.main.ui.shapes.export :as ed]
-   [app.main.ui.shapes.fill-image :as fim]
    [app.main.ui.shapes.filters :as filters]
    [app.main.ui.shapes.frame :as frame]
    [app.main.ui.shapes.gradients :as grad]
    [app.main.ui.shapes.svg-defs :as defs]
+   [app.main.ui.shapes.fills :as fills]
    [app.util.object :as obj]
    [rumext.alpha :as mf]))
 
@@ -33,7 +33,6 @@
         filter-id      (str "filter_" render-id)
         styles         (-> (obj/new)
                            (obj/set! "pointerEvents" pointer-events)
-
                            (cond-> (and (:blend-mode shape) (not= (:blend-mode shape) :normal))
                              (obj/set! "mixBlendMode" (d/name (:blend-mode shape)))))
 
@@ -53,7 +52,9 @@
           (obj/set! "clipPath" (frame/frame-clip-url shape render-id))
 
           (= :group type)
-          (attrs/add-style-attrs shape render-id))]
+          (attrs/add-style-attrs shape render-id))
+        
+        _ (println "shape" shape)]
 
     [:& (mf/provider muc/render-ctx) {:value render-id}
      [:> :g wrapper-props
@@ -63,9 +64,13 @@
       [:defs
        [:& defs/svg-defs          {:shape shape :render-id render-id}]
        [:& filters/filters        {:shape shape :filter-id filter-id}]
-       [:& grad/gradient          {:shape shape :attr :fill-color-gradient}]
        [:& grad/gradient          {:shape shape :attr :stroke-color-gradient}]
-       [:& fim/fill-image-pattern {:shape shape :render-id render-id}]
+       (if (or (some? (:fill-image shape))
+               (= :image (:type shape))
+               (> (count (:fills shape)) 1)
+               (some #(some? (:fill-color-gradient %)) (:fills shape)))
+         [:& fills/fills            {:shape shape :render-id render-id}])
        [:& cs/stroke-defs         {:shape shape :render-id render-id}]
-       [:& frame/frame-clip-def   {:shape shape :render-id render-id}]]
+       [:& frame/frame-clip-def   {:shape shape :render-id render-id}]
+       ]
       children]]))
