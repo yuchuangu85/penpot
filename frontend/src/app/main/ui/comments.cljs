@@ -113,6 +113,7 @@
         content  (:content draft)
         pos-x    (* (:x position) zoom)
         pos-y    (* (:y position) zoom)
+        has-content? (and (not= content "") (some? content))
 
         on-esc
         (mf/use-callback
@@ -154,7 +155,8 @@
         [:input.btn-primary
          {:on-click on-submit
           :type "button"
-          :value "Post"}]
+          :value "Post"
+          :disabled (not has-content?)}]
         [:input.btn-secondary
          {:on-click on-esc
           :type "button"
