@@ -10,8 +10,6 @@
    [app.common.colors :as clr]
    [app.common.data :as d]
    [app.common.pages :as cp]
-   [app.common.uuid :as uuid]
-   [app.main.data.workspace.changes :as dch]
    [app.main.data.workspace.colors :as dc]
    [app.main.store :as st]
    [app.main.ui.icons :as i]
@@ -77,16 +75,9 @@
              values
              kk)
 
-        _ (println "values" values)
-        _ (println "(keys values)" (keys values))
-        _ (println "kk" kk)
-
         hide-fill-on-export? (:hide-fill-on-export values false)
 
         checkbox-ref (mf/use-ref)
-        multiple-fill? (some? (:fills values))
-
-        _ (println "only-shapes?" only-shapes?)
 
         on-add
         (mf/use-callback
@@ -94,12 +85,6 @@
          (fn [_]
            (st/emit! (dc/add-fill ids {:color cp/default-color
                                        :opacity 1}))))
-
-        on-delete
-        (mf/use-callback
-         (mf/deps ids)
-         (fn [_]
-           (st/emit! (dc/change-fill ids (into {} uc/empty-color) 0))))
 
         on-change
         (mf/use-callback

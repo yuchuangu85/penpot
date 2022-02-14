@@ -650,10 +650,8 @@
 
 
 (defn add-fills
-  [props node svg-data]
-  (let [#_(println "add-fils node" node)
-        #_(println "add-fils svg-data" svg-data)
-        fills (-> node
+  [props node]
+  (let [fills (-> node
                   (find-node :defs)
                   (find-node :pattern)
                   (find-node :g)
@@ -770,7 +768,7 @@
           (add-exports node)
           (add-svg-attrs node svg-data)
           (add-library-refs node)
-          (add-fills node svg-data)
+          (add-fills node)
 
           (cond-> (= :svg-raw type)
             (add-svg-content node))

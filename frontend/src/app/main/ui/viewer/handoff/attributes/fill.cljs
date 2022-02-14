@@ -58,7 +58,7 @@
 
        (for [shape shapes]
          (if (seq (:fills shape))
-           (for [[index value] (d/enumerate (:fills shape []))]
+           (for [[_ value] (d/enumerate (:fills shape []))]
              [:& fill-block {:key (str "fill-block-" (:id shape))
                              :shape value}])
            [:& fill-block {:key (str "fill-block-" (:id shape))

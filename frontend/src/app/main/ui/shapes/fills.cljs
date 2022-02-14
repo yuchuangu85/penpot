@@ -6,8 +6,8 @@
 
 (ns app.main.ui.shapes.fills
   (:require
-   [app.common.geom.shapes :as gsh]
    [app.common.data :as d]
+   [app.common.geom.shapes :as gsh]
    [app.config :as cfg]
    [app.main.ui.shapes.attrs :as attrs]
    [app.main.ui.shapes.embed :as embed]
@@ -42,7 +42,7 @@
 
       [:*
        (for [[index value] (-> (d/enumerate (:fills shape [])) reverse)]
-         (if (some? (:fill-color-gradient value))
+         (cond (some? (:fill-color-gradient value))
            (case (:type (:fill-color-gradient value))
              :linear [:> grad/linear-gradient #js {:id (str (name :fill-color-gradient) "_" render-id "_" index)
                                                    :gradient (:fill-color-gradient value)

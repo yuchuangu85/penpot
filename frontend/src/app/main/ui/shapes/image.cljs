@@ -7,11 +7,8 @@
 (ns app.main.ui.shapes.image
   (:require
    [app.common.geom.shapes :as gsh]
-   [app.config :as cfg]
-   [app.main.ui.context :as muc]
    [app.main.ui.shapes.attrs :as attrs]
    [app.main.ui.shapes.custom-stroke :refer [shape-custom-stroke]]
-   [app.main.ui.shapes.embed :as embed]
    [app.util.object :as obj]
    [rumext.alpha :as mf]))
 

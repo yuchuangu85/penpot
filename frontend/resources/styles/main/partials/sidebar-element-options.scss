@@ -961,6 +961,11 @@
     stroke: $color-gray-20;
   }
 
+  &.remove {
+    min-width: 20px;
+    min-height: 20px;
+  }
+
   &:hover svg,
   &.active svg {
     fill: $color-primary;

@@ -163,7 +163,7 @@
 
 (defn change-fill-and-clear
   [ids color]
-  (ptk/reify ::change-fill
+  (ptk/reify ::change-fill-and-clear
     ptk/WatchEvent
     (watch [_ state _]
       (let [set (fn [shape attrs] (assoc shape :fills [attrs]))]
@@ -171,7 +171,7 @@
 
 (defn add-fill
   [ids color]
-  (ptk/reify ::change-fill
+  (ptk/reify ::add-fill
     ptk/WatchEvent
     (watch [_ state _]
       ;; (let [add (fn [shape attrs] _(update shape :fills (fnil conj []) attrs))]
@@ -180,7 +180,7 @@
 
 (defn remove-fill
   [ids color position]
-  (ptk/reify ::change-fill
+  (ptk/reify ::remove-fill
     ptk/WatchEvent
     (watch [_ state _]
       (let [remove-fill-by-index (fn [values index] (->> (d/enumerate values)
@@ -192,7 +192,7 @@
 
 (defn remove-all-fills
   [ids color]
-  (ptk/reify ::change-fill
+  (ptk/reify ::remove-all-fills
     ptk/WatchEvent
     (watch [_ state _]
       (let [remove-all (fn [shape _] (assoc shape :fills []))]

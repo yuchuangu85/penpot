@@ -169,5 +169,5 @@
                               :min 0
                               :max 100}]])])
      (when (some? on-remove)
-       [:div.element-set-actions-button {:on-click on-remove} i/minus])]))
+       [:div.element-set-actions-button.remove {:on-click on-remove} i/minus])]))
 
