@@ -60,27 +60,12 @@
 
         bb-shape (gsh/selection-rect [shape])
 
-<<<<<<< HEAD
         ;; Paths don't have a transform in SVG because we transform the points
         ;; we need to compensate the difference between the original rectangle
         ;; and the transformed one. This factor is that calculation.
         factor (if path?
                  (/ (:height (:selrect shape)) (:height bb-shape))
                  1.0)
-=======
-        transform (gmt/multiply transform
-                                (gmt/translate-matrix translate-vec)
-                                (gmt/rotate-matrix angle)
-                                (gmt/scale-matrix scale-vec))
-        
-        ;; TODO: adapt transforms
-        ;; base-props #js {:id id
-        ;;                 :cx 0
-        ;;                 :cy 0
-        ;;                 :r 1
-        ;;                 :gradientUnits "objectBoundingBox"
-        ;;                 :gradientTransform transform}
->>>>>>> 1bb9c2d3a (:sparkles: Ability to add multiple fills to a shape)
 
         transform (-> (gmt/matrix)
                       (gmt/translate (gpt/point start-x start-y))
@@ -92,16 +77,10 @@
 
         gradient-radius (gpt/length gradient-vec)
         base-props #js {:id id
-<<<<<<< HEAD
                         :cx start-x
                         :cy start-y
                         :r gradient-radius
                         :gradientTransform transform}
-=======
-                        :cx 0.5
-                        :cy 0.5
-                        :r 1}
->>>>>>> 1bb9c2d3a (:sparkles: Ability to add multiple fills to a shape)
 
         include-metadata? (mf/use-ctx ed/include-metadata-ctx)
 
