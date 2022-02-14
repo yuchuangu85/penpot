@@ -11,7 +11,6 @@
    [app.common.pages :as cp]
    [app.main.data.modal :as modal]
    [app.main.refs :as refs]
-   [app.main.store :as st]
    [app.main.ui.components.color-bullet :as cb]
    [app.main.ui.components.color-input :refer [color-input]]
    [app.main.ui.components.numeric-input :refer [numeric-input]]
@@ -62,7 +61,7 @@
   (if (= v :multiple) nil v))
 
 (mf/defc color-row
-  [{:keys [index color disable-gradient disable-opacity on-change on-change-order on-detach on-open on-close title on-remove draggable?]}]
+  [{:keys [index color disable-gradient disable-opacity on-change on-change-order on-detach on-open on-close title on-remove]}]
   (let [current-file-id (mf/use-ctx ctx/current-file-id)
         file-colors     (mf/deref refs/workspace-file-colors)
         shared-libs     (mf/deref refs/workspace-libraries)
@@ -119,18 +118,11 @@
         prev-color (h/use-previous color)
 
         on-drop
-        (fn [side data]
+        (fn [_ data]
           (on-change-order (:index data)))
-         ;;(fn [side {:keys [index] :as data}]
-           ;;(let [index (if (= :bot side) (inc index) index)]
-            ;;  #_(st/emit! (println "KK")))))
-
 
         [dprops dref] (h/use-sortable
                        :data-type "penpot/color-row"
-                       :on-drop on-drop
-                      ;;  :on-drag on-drag
-                      ;;  :on-hold on-hold
                        :disabled false
                        :detect-center? false
                        :data {:id (str "color-row-" index)

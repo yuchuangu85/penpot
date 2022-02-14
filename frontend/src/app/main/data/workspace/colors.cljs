@@ -164,7 +164,7 @@
   [ids index new-index]
   (ptk/reify ::change-fill-position
     ptk/WatchEvent
-    (watch [_ state _]
+    (watch [_ _ _]
            (rx/of (dch/update-shapes
                    ids
                    #(swap-fills % index new-index))))))
