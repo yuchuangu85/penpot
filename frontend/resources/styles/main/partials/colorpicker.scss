@@ -144,11 +144,7 @@
 
     border: 1px solid $color-gray-10;
 
-    background: linear-gradient(
-      var(--gradient-direction),
-      rgba(var(--color), 0) 0%,
-      rgba(var(--color), 1) 100%
-    );
+    background: linear-gradient(var(--gradient-direction), rgba(var(--color), 0) 0%, rgba(var(--color), 1) 100%);
     align-self: center;
     position: relative;
     cursor: pointer;
@@ -162,24 +158,11 @@
     }
 
     &.hue {
-      background: linear-gradient(
-        var(--gradient-direction),
-        #f00 0%,
-        #ff0 17%,
-        #0f0 33%,
-        #0ff 50%,
-        #00f 67%,
-        #f0f 83%,
-        #f00 100%
-      );
+      background: linear-gradient(var(--gradient-direction), #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
     }
 
     &.saturation {
-      background: linear-gradient(
-        var(--gradient-direction),
-        var(--saturation-grad-from) 0%,
-        var(--saturation-grad-to) 100%
-      );
+      background: linear-gradient(var(--gradient-direction), var(--saturation-grad-from) 0%, var(--saturation-grad-to) 100%);
     }
 
     &.opacity {
@@ -191,20 +174,12 @@
         position: absolute;
         width: 100%;
         height: 100%;
-        background: linear-gradient(
-          var(--gradient-direction),
-          rgba(var(--color), 0) 0%,
-          rgba(var(--color), 1) 100%
-        );
+        background: linear-gradient(var(--gradient-direction), rgba(var(--color), 0) 0%, rgba(var(--color), 1) 100%);
       }
     }
 
     &.value {
-      background: linear-gradient(
-        var(--gradient-direction),
-        #fff 0%,
-        #000 100%
-      );
+      background: linear-gradient(var(--gradient-direction), #fff 0%, #000 100%);
     }
 
     .handler {
@@ -237,8 +212,7 @@
       border-radius: 6px;
       z-index: 1;
       border: 1px solid $color-white;
-      box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset,
-        rgb(0 0 0 / 0.25) 0px 4px 4px inset, rgb(0 0 0 / 0.25) 0px 4px 4px;
+      box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset, rgb(0 0 0 / 0.25) 0px 4px 4px inset, rgb(0 0 0 / 0.25) 0px 4px 4px;
       transform: translate(-6px, -6px);
       left: 50%;
       top: 50%;
@@ -385,8 +359,7 @@
         border-radius: 6px;
         z-index: 1;
         border: 1px solid $color-white;
-        box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset,
-          rgb(0 0 0 / 0.25) 0px 4px 4px inset, rgb(0 0 0 / 0.25) 0px 4px 4px;
+        box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset, rgb(0 0 0 / 0.25) 0px 4px 4px inset, rgb(0 0 0 / 0.25) 0px 4px 4px;
         transform: translate(-6px, -6px);
         left: 50%;
         top: 50%;
@@ -495,6 +468,7 @@
 
 .color-data {
   align-items: center;
+  cursor: pointer;
   display: flex;
   margin-bottom: $size-2;
   position: relative;
