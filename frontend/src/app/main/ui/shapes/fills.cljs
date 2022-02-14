@@ -20,25 +20,25 @@
   [props]
 
   (let [shape     (obj/get props "shape")
-        render-id (obj/get props "render-id")]
-    (let [{:keys [x y width height]} (:selrect shape)
-          {:keys [metadata]} shape
-          fill-id (str "fill-" render-id)
-          has-image (or metadata (:fill-image shape))
-          uri (if metadata
-                (cfg/resolve-file-media metadata)
-                (cfg/resolve-file-media (:fill-image shape)))
-          embed (embed/use-data-uris [uri])
-          transform (gsh/transform-matrix shape)
-          pattern-attrs (cond-> #js {:id fill-id
-                                 :patternUnits "userSpaceOnUse"
-                                 :x x
-                                 :y y
-                                 :height height
-                                 :width width
-                                 :data-loading (str (not (contains? embed uri)))}
-                          (= :path (:type shape))
-                          (obj/set! "patternTransform" transform))]
+        render-id (obj/get props "render-id")
+        {:keys [x y width height]} (:selrect shape)
+        {:keys [metadata]} shape
+        fill-id (str "fill-" render-id)
+        has-image (or metadata (:fill-image shape))
+        uri (if metadata
+              (cfg/resolve-file-media metadata)
+              (cfg/resolve-file-media (:fill-image shape)))
+        embed (embed/use-data-uris [uri])
+        transform (gsh/transform-matrix shape)
+        pattern-attrs (cond-> #js {:id fill-id
+                                   :patternUnits "userSpaceOnUse"
+                                   :x x
+                                   :y y
+                                   :height height
+                                   :width width
+                                   :data-loading (str (not (contains? embed uri)))}
+                        (= :path (:type shape))
+                        (obj/set! "patternTransform" transform))]
 
       [:*
        (for [[index value] (-> (d/enumerate (:fills shape [])) reverse)]
@@ -61,4 +61,4 @@
          (when has-image
            [:image {:xlinkHref (get embed uri uri)
                     :width width
-                    :height height}])]]])))
+                    :height height}])]]]))

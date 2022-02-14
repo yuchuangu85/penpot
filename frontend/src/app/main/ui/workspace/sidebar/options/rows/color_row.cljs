@@ -123,6 +123,7 @@
 
         [dprops dref] (h/use-sortable
                        :data-type "penpot/color-row"
+                       :on-drop on-drop
                        :disabled false
                        :detect-center? false
                        :data {:id (str "color-row-" index)
