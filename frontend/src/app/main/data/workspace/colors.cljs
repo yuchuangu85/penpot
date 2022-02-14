@@ -144,14 +144,30 @@
         ;; Not nil attrs
         clean-attrs (->> attrs
                          (remove (comp nil? val))
-                         (into {}))
-        _ (println "attrs" attrs)]
+                         (into {}))]
 
     (rx/concat
      (rx/from (map #(dwt/update-text-attrs {:id % :attrs attrs}) text-ids))
      (rx/of (dch/update-shapes
              shape-ids
              #(transform % clean-attrs))))))
+
+(defn swap-fills [shape index new-index]
+  (let [first (get-in shape [:fills index])
+        second (get-in shape [:fills new-index])]
+    (-> shape
+        (assoc-in [:fills index] second)
+        (assoc-in [:fills new-index] first))
+    ))
+
+(defn change-fill-position
+  [ids index new-index]
+  (ptk/reify ::change-fill-position
+    ptk/WatchEvent
+    (watch [_ state _]
+           (rx/of (dch/update-shapes
+                   ids
+                   #(swap-fills % index new-index))))))
 
 (defn change-fill
   [ids color position]

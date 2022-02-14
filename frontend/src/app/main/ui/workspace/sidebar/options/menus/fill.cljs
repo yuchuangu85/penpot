@@ -12,9 +12,9 @@
    [app.common.pages :as cp]
    [app.main.data.workspace.colors :as dc]
    [app.main.store :as st]
+   [app.main.ui.hooks :as h]
    [app.main.ui.icons :as i]
    [app.main.ui.workspace.sidebar.options.rows.color-row :refer [color-row]]
-   [app.util.color :as uc]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer [tr]]
    [cuerdas.core :as str]
@@ -93,6 +93,13 @@
            (fn [color]
              (st/emit! (dc/change-fill ids color index)))))
 
+        on-change-order
+        (mf/use-callback
+         (mf/deps ids)
+         (fn [new-index]
+           (fn [index]
+             (st/emit! (dc/change-fill-position ids index new-index)))))
+
         on-change-mixed-shapes
         (mf/use-callback
          (mf/deps ids)
@@ -156,17 +163,19 @@
                i/minus]]]
 
             (seq (:fills values))
-            (for [[index value] (d/enumerate (:fills values []))]
-              [:div
+            [:& h/sortable-container {}
+             (for [[index value] (d/enumerate (:fills values []))]
                [:& color-row {:color {:color (:fill-color value)
                                       :opacity (:fill-opacity value)
                                       :id (:fill-color-ref-id value)
                                       :file-id (:fill-color-ref-file value)
                                       :gradient (:fill-color-gradient value)}
+                              :index index
                               :title (tr "workspace.options.fill")
                               :on-change (on-change index)
+                              :on-change-order (on-change-order index)
                           ;; :on-detach on-detach
-                              :on-remove (on-remove index)}]]))
+                              :on-remove (on-remove index)}])])
           ;; varios editar
           ;;:else
           [:& color-row {:color {:color (:fill-color kk)
