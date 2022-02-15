@@ -57,14 +57,15 @@
                           ;; texts have :fill-* attributes, the rest of the shapes have :fills
                           (= (count (filter #(str/starts-with? (str %) ":fill-") (keys values))) 0))
 
-        k1 (if (vector? (:fills values))
-             (concat (:fills values) [(dissoc values :fills)])
-             values)
-        kk (attrs/get-attrs-multi k1 [:fill-color :fill-opacity :fill-color-ref-id :fill-color-ref-file :fill-color-gradient])
+        ;; Texts still have :fill-* attributes and the rest of the shapes just :fills so we need some extra calculation when multiple selection happens to detect them
+        plain-values (if (vector? (:fills values))
+                       (concat (:fills values) [(dissoc values :fills)])
+                       values)
+        plain-values (attrs/get-attrs-multi plain-values [:fill-color :fill-opacity :fill-color-ref-id :fill-color-ref-file :fill-color-gradient])
 
-        kk (if (empty? kk)
-             values
-             kk)
+        plain-values (if (empty? plain-values)
+                       values
+                       plain-values)
 
         hide-fill-on-export? (:hide-fill-on-export values false)
 
@@ -107,15 +108,14 @@
           (st/emit! (dc/remove-all-fills ids {:color clr/black
                                               :opacity 1})))
 
-        ;; TODO Fix
-        ;; on-detach
-        ;; (mf/use-callback
-        ;;  (mf/deps ids)
-        ;;  (fn []
-        ;;    (let [remove-multiple (fn [[_ value]] (not= value :multiple))
-        ;;          color (-> (into {} (filter remove-multiple) color)
-        ;;                    (assoc :id nil :file-id nil))]
-        ;;      (st/emit! (dc/change-fill ids color)))))
+        on-detach
+        (mf/use-callback
+         (mf/deps ids)
+         (fn [index]
+           (fn [color]
+             (let [color (-> color
+                             (assoc :id nil :file-id nil))]
+               (st/emit! (dc/change-fill ids color index))))))
 
         on-change-show-fill-on-export
         (mf/use-callback
@@ -165,19 +165,18 @@
                               :title (tr "workspace.options.fill")
                               :on-change (on-change index)
                               :on-reorder (on-reorder index)
-                          ;; :on-detach on-detach
+                              :on-detach (on-detach index)
                               :on-remove (on-remove index)}])])
           ;; varios editar
           ;;:else
-          [:& color-row {:color {:color (:fill-color kk)
-                                 :opacity (:fill-opacity kk)
-                                 :id (:fill-color-ref-id kk)
-                                 :file-id (:fill-color-ref-file kk)
-                                 :gradient (:fill-color-gradient kk)}
+          [:& color-row {:color {:color (:fill-color plain-values)
+                                 :opacity (:fill-opacity plain-values)
+                                 :id (:fill-color-ref-id plain-values)
+                                 :file-id (:fill-color-ref-file plain-values)
+                                 :gradient (:fill-color-gradient plain-values)}
                          :title (tr "workspace.options.fill")
                          :on-change on-change-mixed-shapes
-                          ;; :on-detach on-detach
-                         }])
+                         :on-detach (on-detach 0)}])
 
 
         (when (or (= type :frame)

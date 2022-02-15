@@ -77,6 +77,9 @@
                       (-> color
                           (update :color #(or % (:value color)))))
 
+        detach-value (fn []
+                       (when on-detach (on-detach color)))
+
         change-value (fn [new-value]
                        (when on-change (on-change (-> color
                                                       (assoc :color new-value)
@@ -154,7 +157,7 @@
           [:div.element-set-actions-button
            {:on-mouse-enter #(reset! hover-detach true)
             :on-mouse-leave #(reset! hover-detach false)
-            :on-click on-detach}
+            :on-click detach-value}
            (if @hover-detach i/unchain i/chain)])]
 
        ;; Rendering a gradient

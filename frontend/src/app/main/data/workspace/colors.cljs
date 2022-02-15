@@ -123,7 +123,7 @@
 
         attrs (cond-> {:fill-color nil
                        :fill-color-gradient nil
-                       ::fill-color-ref-file nil
+                       :fill-color-ref-file nil
                        :fill-color-ref-id nil
                        :fill-opacity nil}
 
