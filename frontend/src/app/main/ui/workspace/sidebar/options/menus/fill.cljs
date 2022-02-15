@@ -67,7 +67,7 @@
                        values
                        plain-values)
 
-        hide-fill-on-export? (:hide-fill-on-export values false)
+        hide-fill-on-export? (:hide-fill-on-export values)
 
         checkbox-ref (mf/use-ref)
 
