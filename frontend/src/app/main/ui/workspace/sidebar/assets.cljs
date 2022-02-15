@@ -799,7 +799,6 @@
           (let [ids (wsh/lookup-selected @st/state)]
             (if (kbd/alt? event)
               (st/emit! (dc/change-stroke ids color))
-              ;; TODO check this
               (st/emit! (dc/change-fill ids color 0)))))
 
         rename-color

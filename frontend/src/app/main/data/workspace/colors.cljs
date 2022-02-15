@@ -273,7 +273,6 @@
 
               update-events
               (fn [color]
-                ;; TODO: check this
                 (rx/of (change-fill ids color 0)))]
 
           (rx/merge

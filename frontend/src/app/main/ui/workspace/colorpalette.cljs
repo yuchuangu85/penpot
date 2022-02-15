@@ -46,7 +46,6 @@
         (fn [event]
           (if (kbd/alt? event)
               (st/emit! (mdc/change-stroke ids-with-children (merge uc/empty-color color)))
-            ;; TODO: check this
               (st/emit! (mdc/change-fill ids-with-children (merge uc/empty-color color) 0))))]
 
     [:div.color-cell {:on-click select-color}
