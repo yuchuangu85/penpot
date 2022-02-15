@@ -115,6 +115,7 @@
              :y 0
              :width 1
              :height 1
+             :fills []
              :selrect {:x 0
                        :y 0
                        :x1 0
