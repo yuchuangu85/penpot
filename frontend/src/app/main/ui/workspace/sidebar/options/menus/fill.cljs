@@ -32,15 +32,6 @@
 (def fill-attrs-shape
   (conj fill-attrs :hide-fill-on-export))
 
-;; (defn create-fill []
-;;   (let [id (uuid/next)]
-;;     {:id id
-;;      :fill-color cp/default-color
-;;      :fill-color-gradient nil
-;;      ::fill-color-ref-file nil
-;;      :fill-color-ref-id nil
-;;      :fill-opacity 1}))
-
 (defn color-values
   [color]
   {:color (:fill-color color)
@@ -93,12 +84,12 @@
            (fn [color]
              (st/emit! (dc/change-fill ids color index)))))
 
-        on-change-order
+        on-reorder
         (mf/use-callback
          (mf/deps ids)
          (fn [new-index]
            (fn [index]
-             (st/emit! (dc/change-fill-position ids index new-index)))))
+             (st/emit! (dc/reorder-fills ids index new-index)))))
 
         on-change-mixed-shapes
         (mf/use-callback
@@ -173,7 +164,7 @@
                               :index index
                               :title (tr "workspace.options.fill")
                               :on-change (on-change index)
-                              :on-change-order (on-change-order index)
+                              :on-reorder (on-reorder index)
                           ;; :on-detach on-detach
                               :on-remove (on-remove index)}])])
           ;; varios editar

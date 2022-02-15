@@ -61,7 +61,7 @@
   (if (= v :multiple) nil v))
 
 (mf/defc color-row
-  [{:keys [index color disable-gradient disable-opacity on-change on-change-order on-detach on-open on-close title on-remove]}]
+  [{:keys [index color disable-gradient disable-opacity on-change on-reorder on-detach on-open on-close title on-remove]}]
   (let [current-file-id (mf/use-ctx ctx/current-file-id)
         file-colors     (mf/deref refs/workspace-file-colors)
         shared-libs     (mf/deref refs/workspace-libraries)
@@ -119,7 +119,7 @@
 
         on-drop
         (fn [_ data]
-          (on-change-order (:index data)))
+          (on-reorder (:index data)))
 
         [dprops dref] (h/use-sortable
                        :data-type "penpot/color-row"

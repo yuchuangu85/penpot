@@ -160,9 +160,9 @@
         (assoc-in [:fills new-index] first))
     ))
 
-(defn change-fill-position
+(defn reorder-fills
   [ids index new-index]
-  (ptk/reify ::change-fill-position
+  (ptk/reify ::reorder-fills
     ptk/WatchEvent
     (watch [_ _ _]
            (rx/of (dch/update-shapes
@@ -174,25 +174,24 @@
   (ptk/reify ::change-fill
     ptk/WatchEvent
     (watch [_ state _]
-      (let [change (fn [shape attrs] (assoc-in shape [:fills position] (into {} attrs)))]
-        (transform-fill state ids color change)))))
+           (let [change (fn [shape attrs] (assoc-in shape [:fills position] (into {} attrs)))]
+             (transform-fill state ids color change)))))
 
 (defn change-fill-and-clear
   [ids color]
   (ptk/reify ::change-fill-and-clear
     ptk/WatchEvent
     (watch [_ state _]
-      (let [set (fn [shape attrs] (assoc shape :fills [attrs]))]
-        (transform-fill state ids color set)))))
+           (let [set (fn [shape attrs] (assoc shape :fills [attrs]))]
+             (transform-fill state ids color set)))))
 
 (defn add-fill
   [ids color]
   (ptk/reify ::add-fill
     ptk/WatchEvent
     (watch [_ state _]
-      ;; (let [add (fn [shape attrs] _(update shape :fills (fnil conj []) attrs))]
-           (let [add (fn [shape attrs] (assoc shape :fills (into [attrs] (:fills shape))))]
-             (transform-fill state ids color add)))))
+      (let [add (fn [shape attrs] (assoc shape :fills (into [attrs] (:fills shape))))]
+        (transform-fill state ids color add)))))
 
 (defn remove-fill
   [ids color position]
@@ -274,7 +273,7 @@
 
               update-events
               (fn [color]
-                ;; TODO
+                ;; TODO: check this
                 (rx/of (change-fill ids color 0)))]
 
           (rx/merge

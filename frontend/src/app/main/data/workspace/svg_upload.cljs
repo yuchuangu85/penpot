@@ -382,7 +382,6 @@
                         :image       (create-image-shape name frame-id svg-data element-data)
                         #_other      (create-raw-svg name frame-id svg-data element-data)))
 
-            ;; TODO improve this
             shape (assoc shape :fills [])
 
             shape (when (some? shape)

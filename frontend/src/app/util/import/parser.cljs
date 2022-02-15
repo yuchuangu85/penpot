@@ -361,8 +361,7 @@
 (defn add-fill
   [props node svg-data]
 
-  (let [
-        fill (:fill svg-data)
+  (let [fill (:fill svg-data)
         hide-fill-on-export (get-meta node :hide-fill-on-export str->bool)
         gradient (when (str/starts-with? fill "url")
                    (parse-gradient node fill))]
@@ -647,8 +646,6 @@
 
       props)))
 
-
-
 (defn add-fills
   [props node]
   (let [fills (-> node
@@ -660,8 +657,6 @@
         fills (map #(add-fill {} node (get-svg-data :rect %)) fills)]
       (-> props
           (assoc :fills fills))))
-
-
 
 
 (defn add-svg-content

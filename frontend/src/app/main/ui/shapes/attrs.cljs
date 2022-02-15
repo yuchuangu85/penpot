@@ -81,7 +81,6 @@
 
 (defn add-fill [attrs shape render-id index]
   (let [
-        ;; _ (println "add-fill" attrs shape render-id)
         fill-attrs (cond
                      (contains? shape :fill-image)
                      (let [fill-image-id (str "fill-image-" render-id)]

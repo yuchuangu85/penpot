@@ -33,6 +33,7 @@
         filter-id      (str "filter_" render-id)
         styles         (-> (obj/new)
                            (obj/set! "pointerEvents" pointer-events)
+
                            (cond-> (and (:blend-mode shape) (not= (:blend-mode shape) :normal))
                              (obj/set! "mixBlendMode" (d/name (:blend-mode shape)))))
 
@@ -69,6 +70,5 @@
                (some #(some? (:fill-color-gradient %)) (:fills shape)))
          [:& fills/fills            {:shape shape :render-id render-id}])
        [:& cs/stroke-defs         {:shape shape :render-id render-id}]
-       [:& frame/frame-clip-def   {:shape shape :render-id render-id}]
-       ]
+       [:& frame/frame-clip-def   {:shape shape :render-id render-id}]]
       children]]))

@@ -166,14 +166,13 @@
             (= attr-type :shadow) (attrs/get-attrs-multi [v1 v2] attrs shadow-eq shadow-sel)
             (= attr-type :blur)   (attrs/get-attrs-multi [v1 v2] attrs blur-eq blur-sel)
             :else                 (attrs/get-attrs-multi [v1 v2] attrs)))
-        
 
         extract-attrs
         (fn [[ids values] {:keys [id type content] :as shape}]
           (let [props (get-in type->props [type attr-type])]
             (case props
               :ignore   [ids values]
-              
+
               :shape    [(conj ids id)
                          ;; TODO restore when refactor is ready
                         ;;  (merge-attrs values (merge
@@ -181,7 +180,6 @@
                         ;;                       (select-keys shape attrs)))]
                                                   (merge-attrs values (select-keys shape attrs))]
 
-              
 
               :text     [(conj ids id)
                          (-> values
