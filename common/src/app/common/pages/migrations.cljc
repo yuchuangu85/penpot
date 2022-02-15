@@ -300,3 +300,31 @@
             (update page :objects #(d/mapm update-object %)))]
 
     (update data :pages-index #(d/mapm update-page %))))
+
+(defn set-fills
+  [shape]
+  let [attrs {:fill-color (:fill-color shape)
+              :fill-color-gradient (:fill-color-gradient shape)
+              :fill-color-ref-file (:fill-color-ref-file shape)
+              :fill-color-ref-id (:fill-color-ref-id shape)
+              :fill-opacity (:fill-opacity shape)}
+
+        ;; Not nil attrs
+        clean-attrs (->> attrs
+                         (remove (comp nil? val))
+                         (into {}))]
+  (-> shape
+      (assoc :fills [clean-attrs])))
+
+;; Add fills to shapes
+(defmethod migrate 14
+  [data]
+  (letfn [(update-object [_ object]
+            (cond-> object
+              (and (not (= :text (:type object))) (nil? (:fills shape)))
+              (set-fills)))
+
+          (update-page [_ page]
+            (update page :objects #(d/mapm update-object %)))]
+
+    (update data :pages-index #(d/mapm update-page %))))
