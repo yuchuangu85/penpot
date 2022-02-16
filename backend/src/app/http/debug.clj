@@ -14,6 +14,7 @@
    [app.db :as db]
    [app.rpc.mutations.files :as m.files]
    [app.rpc.queries.profile :as profile]
+   [app.http.debug.export :as dbg-export]
    [app.util.blob :as blob]
    [app.util.template :as tmpl]
    [app.util.time :as dt]
@@ -209,4 +210,5 @@
    :retrieve-file-changes (partial retrieve-file-changes cfg)
    :retrieve-error (partial retrieve-error cfg)
    :retrieve-error-list (partial retrieve-error-list cfg)
-   :upload-file-data (partial upload-file-data cfg)})
+   :upload-file-data (partial upload-file-data cfg)
+   :export (partial dbg-export/handler cfg)})

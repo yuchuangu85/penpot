@@ -53,7 +53,6 @@
     limit 10
     for update skip locked")
 
-
 (defn- retrieve-candidates
   [{:keys [conn max-age] :as cfg}]
   (let [interval (db/interval max-age)]

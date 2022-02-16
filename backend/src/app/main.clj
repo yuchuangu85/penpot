@@ -91,7 +91,8 @@
     :rpc                  (ig/ref :app.rpc/rpc)}
 
    :app.http.debug/handlers
-   {:pool (ig/ref :app.db/pool)}
+   {:pool    (ig/ref :app.db/pool)
+    :storage (ig/ref :app.storage/storage)}
 
    :app.http.websocket/handler
    {:pool     (ig/ref :app.db/pool)
