@@ -125,6 +125,7 @@
      ["/error/:id" {:get (:retrieve-error debug)}]
      ["/error" {:get (:retrieve-error-list debug)}]
      ["/file/export" {:get (:export debug)}]
+     ["/file/import" {:post (:import debug)}]
      ["/file/data" {:get (:retrieve-file-data debug)
                     :post (:upload-file-data debug)}]
      ["/file/changes" {:get (:retrieve-file-changes debug)}]]

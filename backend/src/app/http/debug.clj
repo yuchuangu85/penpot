@@ -211,4 +211,5 @@
    :retrieve-error (partial retrieve-error cfg)
    :retrieve-error-list (partial retrieve-error-list cfg)
    :upload-file-data (partial upload-file-data cfg)
-   :export (partial dbg-export/handler cfg)})
+   :export (partial dbg-export/export-handler cfg)
+   :import (partial dbg-export/import-handler cfg)})
