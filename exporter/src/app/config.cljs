@@ -25,6 +25,7 @@
    :host "devenv"
    :http-server-port 6061
    :browser-concurrency 5
+   :origin-white-list #{"http://localhost:3449"}
    :browser-strategy :incognito})
 
 (s/def ::browser-concurrency ::us/integer)
@@ -35,6 +36,7 @@
 (s/def ::sentry-dsn ::us/string)
 (s/def ::tenant ::us/string)
 (s/def ::host ::us/string)
+(s/def ::origin-white-list ::us/set-of-str)
 
 (s/def ::config
   (s/keys :opt-un [::public-uri

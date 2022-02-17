@@ -6,16 +6,15 @@
 
 (ns app.core
   (:require
+   ["process" :as proc]
    [app.browser :as bwr]
    [app.common.logging :as l]
    [app.config]
    [app.http :as http]
-   [app.sentry :as sentry]
    [promesa.core :as p]))
 
 (enable-console-print!)
 (l/initialize!)
-(sentry/init!)
 
 (defonce state (atom nil))
 
@@ -38,3 +37,7 @@
    (bwr/stop)
    (http/stop)
    (done)))
+
+
+(proc/on "uncaughtException" (fn [cause]
+                               (js/console.error cause)))

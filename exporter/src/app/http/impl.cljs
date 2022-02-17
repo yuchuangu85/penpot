@@ -6,90 +6,143 @@
 
 (ns app.http.impl
   (:require
+   ["stream" :as stream]
    ["http" :as http]
    ["cookies" :as Cookies]
    ["inflation" :as inflate]
    ["raw-body" :as raw-body]
-   [app.util.transit :as t]
+   [app.common.transit :as t]
    [cuerdas.core :as str]
    [lambdaisland.uri :as u]
-   [promesa.core :as p]
-   [reitit.core :as r]))
+   [promesa.core :as p]))
 
-(def methods-with-body
-  #{"POST" "PUT" "DELETE"})
 
-(defn- match
-  [router {:keys [path query] :as request}]
-  (when-let [match (r/match-by-path router path)]
-    (assoc match :query-params (u/query-string->map query))))
+(defprotocol IStreamableResponseBody
+  (write-body! [_ response]))
+
+(extend-protocol IStreamableResponseBody
+  string
+  (write-body! [data response]
+    (.write ^js response data)
+    (.end ^js response))
+
+  js/Buffer
+  (write-body! [data response]
+    (.write ^js response data)
+    (.end ^js response))
+
+  stream/Stream
+  (write-body! [data response]
+    (.pipe ^js data response)
+    (.on ^js data "error" (fn [cause]
+                            (js/console.error cause)
+                            (.end response)))))
 
 (defn- handle-response
-  [req res]
-  (fn [{:keys [body headers status] :or {headers {} status 200}}]
-    (.writeHead ^js res status (clj->js headers))
-    (.end ^js res body)))
+  [{:keys [:response/body
+           :response/headers
+           :response/status
+           response]
+    :as exchange}]
+  (let [status  (or status 200)
+        headers (clj->js headers)
+        body    (or body "")]
+    (.writeHead ^js response status headers)
+    (write-body! body response)))
 
 (defn- parse-headers
   [req]
   (let [orig (unchecked-get req "headers")]
     (persistent!
-     (reduce #(assoc! %1 %2 (unchecked-get orig %2))
+     (reduce #(assoc! %1 (str/lower %2) (unchecked-get orig %2))
              (transient {})
              (js/Object.keys orig)))))
 
-(defn- parse-body
-  [req]
-  (let [headers (unchecked-get req "headers")
-        method  (unchecked-get req "method")
-        ctype   (unchecked-get headers "content-type")
-        opts     #js {:limit "5mb" :encoding "utf8"}]
-    (when (contains? methods-with-body method)
-      (-> (raw-body (inflate req) opts)
-          (p/then (fn [data]
-                    (cond-> data
-                      (= ctype "application/transit+json")
-                      (t/decode))))))))
+(defn- wrap-body-params
+  [handler]
+  (let [opts #js {:limit "2mb" :encoding "utf8"}]
+    (fn [{:keys [:request/method :request/headers request] :as exchange}]
+      (let [ctype (get headers "content-type")]
+        (if (= method "post")
+          (-> (raw-body (inflate request) opts)
+              (p/then (fn [data]
+                        (cond-> data
+                          (= ctype "application/transit+json")
+                          (t/decode-str))))
+              (p/then (fn [data]
+                        (handler (assoc exchange :request/body-params data)))))
+          (handler exchange))))))
 
-(defn- handler-adapter
+(defn- wrap-params
+  [handler]
+  (fn [{:keys [:request/body-params :request/query-params] :as exchange}]
+    (handler (assoc exchange :request/params (merge query-params body-params)))))
+
+(defn- wrap-response-format
+  [handler]
+  (fn [exchange]
+    (p/then
+     (handler exchange)
+     (fn [{:keys [:response/body :response/status] :as exchange}]
+       (cond
+         (map? body)
+         (let [data (t/encode-str body {:type :json-verbose})]
+           (-> exchange
+               (assoc :response/body data)
+               (assoc :response/status 200)
+               (update :response/headers assoc "content-type" "application/transit+json")
+               (update :response/headers assoc "content-length" (count data))))
+
+         (and (nil? body)
+              (= 200 status))
+         (-> exchange
+             (assoc :response/body "")
+             (assoc :response/status 204)
+             (assoc :response/headers {"content-length" 0}))
+
+         :else
+         exchange)))))
+
+(defn- wrap-query-params
+  [handler]
+  (fn [{:keys [:request/uri] :as exchange}]
+    (handler (assoc exchange :request/query-params (u/query-string->map (:query uri))))))
+
+(defn- wrap-error
   [handler on-error]
+  (fn [exchange]
+    (-> (p/do (handler exchange))
+        (p/catch (fn [cause] (on-error cause exchange))))))
+
+(defn- wrap-auth
+  [handler cookie-name]
+  (fn [{:keys [:request/cookies] :as exchange}]
+    (let [token (.get ^js cookies cookie-name)]
+      (handler (cond-> exchange token (assoc :request/auth-token token))))))
+
+(defn- create-adapter
+  [handler]
   (fn [req res]
-    (let [cookies (new Cookies req res)
-          headers (parse-headers req)
-          uri     (u/uri (unchecked-get req "url"))
-          request {:method (str/lower (unchecked-get req "method"))
-                   :path (:path uri)
-                   :query (:query uri)
-                   :url uri
-                   :headers headers
-                   :cookies cookies
-                   :internal-request req
-                   :internal-response res}]
-      (-> (parse-body req)
-          (p/then (fn [body]
-                    (let [request (assoc request :body body)]
-                      (handler request))))
-          (p/catch (fn [error] (on-error error request)))
-          (p/then (handle-response req res))))))
-
-(defn router-handler
-  [router]
-  (fn [{:keys [body] :as request}]
-    (let [route   (match router request)
-          params  (merge {}
-                         (:query-params route)
-                         (:path-params route)
-                         (when (map? body) body))
-          request (assoc request
-                         :route route
-                         :params params)
-
-          handler (get-in route [:data :handler])]
-      (if (and route handler)
-        (handler request)
-        {:status 404
-         :body "Not found"}))))
+    (let [cookies  (Cookies. req res)
+          headers  (parse-headers req)
+          uri      (u/uri (unchecked-get req "url"))
+          exchange {:request/method (str/lower (unchecked-get req "method"))
+                    :request/path (:path uri)
+                    :request/uri uri
+                    :request/headers headers
+                    :request/cookies cookies
+                    :request req
+                    :response res}]
+      (-> (p/do (handler exchange))
+          (p/then handle-response)))))
 
 (defn server
   [handler on-error]
-  (.createServer ^js http (handler-adapter handler on-error)))
+  (.createServer ^js http (-> handler
+                              (wrap-auth "auth-token")
+                              (wrap-response-format)
+                              (wrap-params)
+                              (wrap-query-params)
+                              (wrap-body-params)
+                              (wrap-error on-error)
+                              (create-adapter))))

@@ -6,8 +6,11 @@
 
 (ns app.http.export
   (:require
+   ["archiver" :as arc]
+   ["fs" :as fs]
    [app.common.exceptions :as exc :include-macros true]
    [app.common.spec :as us]
+   [app.http.resources :as rsc]
    [app.renderer.bitmap :as rb]
    [app.renderer.pdf :as rp]
    [app.renderer.svg :as rs]
@@ -25,11 +28,10 @@
 (s/def ::type ::us/keyword)
 (s/def ::suffix string?)
 (s/def ::scale number?)
-
 (s/def ::export  (s/keys :req-un [::type ::suffix ::scale]))
-(s/def ::exports (s/coll-of ::export :kind vector?))
+(s/def ::exports (s/coll-of ::export :kind vector? :min-count 1))
 
-(s/def ::handler-params
+(s/def ::params
   (s/keys :req-un [::page-id ::file-id ::object-id ::name ::exports]))
 
 (declare handle-single-export)
@@ -38,61 +40,51 @@
 (declare attach-filename)
 
 (defn export-handler
-  [{:keys [params cookies] :as request}]
-  (let [{:keys [exports page-id file-id object-id name]} (us/conform ::handler-params params)
-        token  (.get ^js cookies "auth-token")]
-    (case (count exports)
-      0 (exc/raise :type :validation
-                   :code :missing-exports)
+  [{:keys [:request/params :request/cookies :request/auth-token] :as exchange}]
+  (let [{:keys [exports page-id file-id object-id name]} (us/conform ::params params)]
+    (if (= 1 (count exports))
+      (-> (first exports)
+          (assoc :name name)
+          (assoc :token auth-token)
+          (assoc :file-id file-id)
+          (assoc :page-id page-id)
+          (assoc :object-id object-id)
+          (handle-single-export exchange))
 
-      1 (-> (first exports)
-            (assoc :name name)
-            (assoc :token token)
-            (assoc :file-id file-id)
-            (assoc :page-id page-id)
-            (assoc :object-id object-id)
-            (handle-single-export))
+      (let [exports (->> exports
+                         (map (fn [item]
+                                (-> item
+                                    (assoc :name name)
+                                    (assoc :token auth-token)
+                                    (assoc :file-id file-id)
+                                    (assoc :page-id page-id)
+                                    (assoc :object-id object-id))))
+                         (attach-filename))]
 
-      (->> exports
-           (map (fn [item]
-                  (-> item
-                      (assoc :name name)
-                      (assoc :token token)
-                      (assoc :file-id file-id)
-                      (assoc :page-id page-id)
-                      (assoc :object-id object-id))))
-           (handle-multiple-export)))))
+        (handle-multiple-export exports exchange)))))
 
 (defn- handle-single-export
-  [params]
-  (p/let [result (perform-export params)]
-    {:status 200
-     :body (:content result)
-     :headers {"content-type" (:mime-type result)
-               "content-length" (:length result)}}))
+  [params exchange]
+  (-> (perform-export params)
+      (p/then rsc/create-simple)
+      (p/then (fn [resource]
+                (assoc exchange :response/body (dissoc resource :path))))))
 
 (defn- handle-multiple-export
-  [exports]
-  (let [proms (->> exports
-                   (attach-filename)
-                   (map perform-export))]
-    (-> (p/all proms)
-        (p/then (fn [results]
-                  (reduce #(zip/add! %1 (:filename %2) (:content %2)) (zip/create) results)))
-        (p/then (fn [fzip]
-                  (.generateAsync ^js fzip #js {:type "uint8array"})))
-        (p/then (fn [data]
-                  {:status 200
-                   :headers {"content-type" "application/zip"}
-                   :body data})))))
+  [exports exchange]
+  (let [items (map #(fn [] (perform-export %)) exports)]
+    (-> (rsc/create-zip items)
+        (p/then (fn [resource]
+                  (assoc exchange :response/body (dissoc resource :path)))))))
 
 (defn- perform-export
-  [params]
-  (case (:type params)
-    :png  (rb/render params)
-    :jpeg (rb/render params)
-    :svg  (rs/render params)
-    :pdf  (rp/render params)))
+  [{:keys [type] :as params}]
+  (p/let [res (case type
+                :png  (rb/render params)
+                :jpeg (rb/render params)
+                :svg  (rs/render params)
+                :pdf  (rp/render params))]
+    (assoc res :type type)))
 
 (defn- find-filename-candidate
   [params used]
