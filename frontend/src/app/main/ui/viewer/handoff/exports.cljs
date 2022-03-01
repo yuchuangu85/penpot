@@ -10,18 +10,36 @@
    [app.main.ui.icons :as i]
    [app.main.ui.workspace.sidebar.options.menus.exports :as we]
    [app.util.dom :as dom]
-   [app.util.i18n :refer [tr]]
+   [app.util.i18n :refer [tr, c]]
    [rumext.alpha :as mf]))
 
 (mf/defc exports
-  [{:keys [shape page-id file-id] :as props}]
-  (let [exports  (mf/use-state (:exports shape []))
+  [{:keys [shapes name page-id file-id] :as props}]
+  (let [exports  (mf/use-state [])
 
-        [on-download loading?] (we/use-download-export shape page-id file-id @exports)
+        first-object-name (-> (first shapes) :name)
+        filename (cond
+                   ;; one export from one shape
+                   (and (= (count shapes) 1)
+                        (= (count @exports) 1)
+                        (not (empty (:suffix (first @exports)))))
+                   (str
+                    first-object-name
+                    (:suffix (first @exports)))
+
+                   ;; multiple exports from one shape
+                   (and (= (count shapes) 1)
+                        (> (count @exports) 1))
+                   first-object-name
+
+                   :else
+                   "TODO")
+
+        [on-download loading?] (we/use-download-export shapes filename page-id file-id @exports)
 
         add-export
         (mf/use-callback
-         (mf/deps shape)
+         (mf/deps shapes)
          (fn []
            (let [xspec {:type :png
                         :suffix ""
@@ -30,7 +48,7 @@
 
         delete-export
         (mf/use-callback
-         (mf/deps shape)
+         (mf/deps shapes)
          (fn [index]
            (swap! exports (fn [exports]
                             (let [[before after] (split-at index exports)]
@@ -38,7 +56,7 @@
 
         on-scale-change
         (mf/use-callback
-         (mf/deps shape)
+         (mf/deps shapes)
          (fn [index event]
            (let [target  (dom/get-target event)
                  value   (dom/get-value target)
@@ -47,7 +65,7 @@
 
         on-suffix-change
         (mf/use-callback
-         (mf/deps shape)
+         (mf/deps shapes)
          (fn [index event]
            (let [target  (dom/get-target event)
                  value   (dom/get-value target)]
@@ -55,7 +73,7 @@
 
         on-type-change
         (mf/use-callback
-         (mf/deps shape)
+         (mf/deps shapes)
          (fn [index event]
            (let [target  (dom/get-target event)
                  value   (dom/get-value target)
@@ -63,9 +81,12 @@
              (swap! exports assoc-in [index :type] value))))]
 
     (mf/use-effect
-     (mf/deps shape)
+     (mf/deps shapes)
      (fn []
-       (reset! exports (:exports shape []))))
+       (reset! exports (-> (mapv #(:exports % []) shapes)
+                           flatten
+                           distinct
+                           vec))))
 
     [:div.element-set.exports-options
      [:div.element-set-title
@@ -104,5 +125,5 @@
           :disabled loading?}
          (if loading?
            (tr "workspace.options.exporting-object")
-           (tr "workspace.options.export-object"))]])]))
+           (tr "workspace.options.export-object" (c (count shapes))))]])]))
 

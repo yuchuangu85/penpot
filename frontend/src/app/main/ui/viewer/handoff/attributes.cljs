@@ -49,8 +49,7 @@
         {:shapes shapes
          :frame frame
          :locale locale}])
-     (when-not (= :multiple type)
-       [:& exports
-        {:shape (first shapes)
-         :page-id page-id
-         :file-id file-id}])]))
+     [:& exports
+      {:shapes shapes
+       :page-id page-id
+       :file-id file-id}]]))

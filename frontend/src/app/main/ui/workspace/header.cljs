@@ -30,10 +30,51 @@
    [potok.core :as ptk]
    [rumext.alpha :as mf]))
 
-;; --- Zoom Widget
 
 (def workspace-persistence-ref
   (l/derived :workspace-persistence st/state))
+
+;; --- Export progress Widget
+
+(mf/defc export-progress-dialog
+  {::mf/register modal/components
+   ::mf/register-as :export-progress-dialog}
+  [{:keys [progress]}]
+  (let [close #(modal/hide!)
+        export-progress (mf/deref refs/export-progress)
+        export-total (mf/deref refs/export-total)
+        export-percentaje (/ (* export-progress 100) export-total)]
+    [:div.export-progress-modal-overlay
+     [:div.export-progress-modal-container
+      [:div.export-progress-modal-header
+       [:p.export-progress-modal-title (tr "workspace.options.exporting-object")]
+       [:p.progress (str export-progress " / " export-total)]
+       [:button.modal-close-button {:on-click close} i/close]]
+
+      [:svg {:height 8 :width 265}
+       [:g
+        [:line {:x1 0 :y1 0 :x2 "100%" :y2 0 :stroke "#E3E3E3" :stroke-width 30}]
+        [:line {:x1 0 :y1 0 :x2 (str export-percentaje "%") :y2 0 :stroke "#31EFB8" :stroke-width 30}]]]]]))
+
+(mf/defc export-progress-widget
+  {::mf/wrap [mf/memo]}
+  []
+  (let [export-progress (mf/deref refs/export-progress)
+        export-total (mf/deref refs/export-total)
+        export (/ export-progress export-total)
+        circumference (* 2 Math/PI 12)
+        pct (- circumference (* circumference export))]
+    [:div.export-progress-widget {:on-click (->
+                                             (println "HOLA")
+                                             (st/emit!
+                                              (modal/show
+                                               {:type :export-progress-dialog}))
+                                             (st/emitf (dw/toggle-export-detail-visibililty)))}
+     [:svg {:width "32" :height "32"}
+      [:circle {:r "12" :cx "16" :cy "16" :fill "transparent" :stroke "#64666A" :stroke-width "4"}]
+      [:circle {:r "12" :cx "16" :cy "16" :fill "transparent" :stroke "#31EFB8" :stroke-width "4" :stroke-dasharray (str circumference " " circumference) :stroke-dashoffset pct :transform "rotate(-90 16,16)"}]]]))
+
+;; --- Persistence state Widget
 
 (mf/defc persistence-state-widget
   {::mf/wrap [mf/memo]}
@@ -59,6 +100,8 @@
        [:div.error {:title "There was an error saving the data. Please refresh if this persists."}
         [:span.icon i/msg-warning]
         [:span.label (tr "workspace.header.save-error")]])]))
+
+;; --- Zoom Widget
 
 (mf/defc zoom-widget-workspace
   {::mf/wrap [mf/memo]}
@@ -149,6 +192,14 @@
         start-editing-name (fn [event]
                              (dom/prevent-default event)
                              (reset! editing? true))
+
+        on-export-shapes
+        (mf/use-callback
+         (fn [_]
+           (let []
+             (st/emit!
+              (modal/show
+               {:type :export-shapes})))))
 
         on-export-file
         (mf/use-callback
@@ -269,6 +320,9 @@
           [:span (tr "dashboard.remove-shared")]]
          [:li {:on-click on-add-shared}
           [:span (tr "dashboard.add-shared")]])
+       [:li.export-file {:on-click on-export-shapes}
+        [:span (tr "dashboard.export-shapes")]
+        [:span.shortcut (sc/get-tooltip :export-shapes)]]
        [:li.export-file {:on-click on-export-file}
         [:span (tr "dashboard.export-single")]]
        (when (seq frames)
@@ -383,9 +437,10 @@
 
 (mf/defc header
   [{:keys [file layout project page-id] :as props}]
-  (let [team-id  (:team-id project)
-        zoom     (mf/deref refs/selected-zoom)
-        params   {:page-id page-id :file-id (:id file) :section "interactions"}
+  (let [team-id            (:team-id project)
+        zoom               (mf/deref refs/selected-zoom)
+        export-in-progress (mf/deref refs/export-in-progress)
+        params             {:page-id page-id :file-id (:id file) :section "interactions"}
 
         go-back
         (mf/use-callback
@@ -415,6 +470,7 @@
      [:div.right-area
       [:div.options-section
        [:& persistence-state-widget]
+       [:& export-progress-widget]
        [:button.document-history
         {:alt (tr "workspace.sidebar.history" (sc/get-tooltip :toggle-history))
          :class (when (contains? layout :document-history) "selected")

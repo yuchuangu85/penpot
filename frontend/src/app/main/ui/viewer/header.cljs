@@ -16,6 +16,8 @@
    [app.main.ui.icons :as i]
    [app.main.ui.viewer.comments :refer [comments-menu]]
    [app.main.ui.viewer.interactions :refer [flows-menu interactions-menu]]
+   ;; TODO: review import
+   [app.main.ui.workspace.header :refer [export-progress-widget]]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer [tr]]
    [rumext.alpha :as mf]))
@@ -87,7 +89,8 @@
        :comments [:& comments-menu]
 
        [:div.view-options])
-
+     
+     [:& export-progress-widget]
      [:& zoom-widget
       {:zoom zoom
        :on-increase (st/emitf dv/increase-zoom)

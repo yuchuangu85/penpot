@@ -338,6 +338,22 @@
 (dm/export layout/toggle-layout-flag)
 (dm/export layout/remove-layout-flag)
 
+;; --- Export progress
+
+(defn toggle-export-detail-visibililty
+  ;; [&]
+  []
+  (ptk/reify ::toggle-export-detail-visibililty
+    ptk/UpdateEvent
+    (update [_ state]
+      (let [visibility (get-in state [:workspace-global :export-detail-visibililty] false)
+            _ (println "TODO ---------->" visibility)]
+        (-> state
+            (assoc-in [:workspace-global :export-detail-visibililty] (not visibility))
+            ;; TODO: remove
+            (assoc-in [:workspace-global :export-total] (+ 1000 (rand-int 1000)))
+            (assoc-in [:workspace-global :export-progress] (rand-int 1000)))))))
+
 ;; --- Nudge
 
 (defn update-nudge
