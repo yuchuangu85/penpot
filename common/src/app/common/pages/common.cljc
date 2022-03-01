@@ -65,7 +65,8 @@
    :masked-group?         :mask-group
    :constraints-h         :constraints-group
    :constraints-v         :constraints-group
-   :fixed-scroll          :constraints-group})
+   :fixed-scroll          :constraints-group
+   :exports               :exports-group})
 
 ;; Attributes that may directly be edited by the user with forms
 (def editable-attrs
@@ -99,7 +100,9 @@
             :stroke-opacity
             :stroke-color-gradient
             :stroke-cap-start
-            :stroke-cap-end}
+            :stroke-cap-end
+
+            :exports}
 
   :group #{:proportion-lock
            :width :height
@@ -119,7 +122,9 @@
 
            :shadow
 
-           :blur}
+           :blur
+
+           :exports}
 
    :rect #{:proportion-lock
            :width :height
@@ -146,7 +151,7 @@
            :fill-color-ref-id
            :fill-color-ref-file
            :fill-color-gradient
-           
+
            :strokes
            :stroke-style
            :stroke-alignment
@@ -161,7 +166,9 @@
 
            :shadow
 
-           :blur}
+           :blur
+
+           :exports}
 
    :circle #{:proportion-lock
              :width :height
@@ -201,7 +208,9 @@
 
              :shadow
 
-             :blur}
+             :blur
+
+             :exports}
 
   :path #{:proportion-lock
           :width :height
@@ -241,7 +250,9 @@
 
           :shadow
 
-          :blur}
+          :blur
+
+          :exports}
 
   :text #{:proportion-lock
           :width :height
@@ -304,7 +315,9 @@
 
           :text-transform
 
-          :grow-type}
+          :grow-type
+
+          :exports}
 
   :image #{:proportion-lock
            :width :height
@@ -327,7 +340,9 @@
 
            :shadow
 
-           :blur}
+           :blur
+
+           :exports}
 
   :svg-raw #{:proportion-lock
              :width :height
@@ -369,7 +384,9 @@
 
              :shadow
 
-             :blur}
+             :blur
+
+             :exports}
 
   :bool #{:proportion-lock
           :width :height
@@ -409,5 +426,7 @@
 
           :shadow
 
-          :blur}})
+          :blur
+
+          :exports}})
 

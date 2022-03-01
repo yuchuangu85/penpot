@@ -105,6 +105,15 @@
   [id]
   (l/derived #(contains? % id) selected-shapes))
 
+(def export-in-progress
+  (l/derived :export-in-progress workspace-global))
+
+(def export-progress
+  (l/derived :export-progress workspace-global))
+
+(def export-total
+  (l/derived :export-total workspace-global))
+
 (def selected-zoom
   (l/derived :zoom workspace-local))
 

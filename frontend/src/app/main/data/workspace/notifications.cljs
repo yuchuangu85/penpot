@@ -180,6 +180,7 @@
       ptk/UpdateEvent
       (update [_ state]
         ;; (let [profiles (:users state)]
+        (println "xxxxxxxx" message)
         (if (= :disconnect type)
           (update state :workspace-presence dissoc session-id)
           (update state :workspace-presence update-presence))))))
