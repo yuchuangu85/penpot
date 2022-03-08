@@ -6,15 +6,12 @@
 
 (ns app.http.export
   (:require
-   ["archiver" :as arc]
-   ["fs" :as fs]
    [app.common.exceptions :as exc :include-macros true]
    [app.common.spec :as us]
    [app.http.resources :as rsc]
    [app.renderer.bitmap :as rb]
    [app.renderer.pdf :as rp]
    [app.renderer.svg :as rs]
-   [app.zipfile :as zip]
    [cljs.spec.alpha :as s]
    [cuerdas.core :as str]
    [promesa.core :as p]))

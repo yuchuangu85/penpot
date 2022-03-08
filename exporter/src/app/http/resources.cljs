@@ -11,20 +11,24 @@
    ["fs" :as fs]
    ["os" :as os]
    ["path" :as path]
+   [app.common.data :as d]
    [app.common.data.macros :as dm]
    [app.common.exceptions :as ex]
    [app.common.uuid :as uuid]
    [cuerdas.core :as str]
    [promesa.core :as p]))
 
+(defn- get-path
+  [type id]
+  (path/join (os/tmpdir) (dm/str  "exporter." (d/name type) "." id)))
+
 (defn- get-mtype
   [type]
-  (let [type (if (keyword? type) (name type) type)]
-    (case type
-      "zip" "application/zip"
-      "jpeg" "image/jpeg"
-      "png"  "image/png"
-      "pdf"  "application/pdf")))
+  (case (d/name type)
+    "zip" "application/zip"
+    "jpeg" "image/jpeg"
+    "png"  "image/png"
+    "pdf"  "application/pdf"))
 
 (defn- fs-stat
   [path]
@@ -34,24 +38,11 @@
                  :size (.-size data)}))
       (p/catch (constantly nil))))
 
-(defn- lookup
-  [id]
-  (p/let [[type task-id] (str/split id "." 2)
-          path  (path/join (os/tmpdir) (dm/str  "exporter." type "." task-id))
-          mtype (get-mtype type)
-          stat  (fs-stat path)]
-    (when-not stat
-      (ex/raise :type :not-found))
-
-    {:stream (fs/createReadStream path)
-     :headers {"content-type" mtype
-               "content-length" (:size stat)}}))
-
-(defn- create
+(defn create
   "Generates ephimeral resource object."
   [type]
   (let [task-id (uuid/next)]
-    {:path (path/join (os/tmpdir) (dm/str "exporter." (name type) "." task-id))
+    {:path (get-path type task-id)
      :mtype (get-mtype type)
      :id (dm/str (name type) "." task-id)}))
 
@@ -93,6 +84,20 @@
      (-> (write-as-zip! path items on-progress)
          (p/then #(fs-stat path))
          (p/then #(merge resource %))))))
+
+(defn- lookup
+  [id]
+  (p/let [[type task-id] (str/split id "." 2)
+          path  (get-path type task-id)
+          mtype (get-mtype type)
+          stat  (fs-stat path)]
+
+    (when-not stat
+      (ex/raise :type :not-found))
+
+    {:stream (fs/createReadStream path)
+     :headers {"content-type" mtype
+               "content-length" (:size stat)}}))
 
 (defn retrieve-handler
   [{:keys [:request/params response] :as exchange}]
