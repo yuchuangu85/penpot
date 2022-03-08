@@ -17,6 +17,12 @@
    [cuerdas.core :as str]
    [promesa.core :as p]))
 
+(declare ^:private handle-exports)
+(declare ^:private handle-single-export)
+(declare ^:private handle-multiple-export)
+(declare ^:private run-export)
+(declare ^:private assign-file-name)
+
 (s/def ::name ::us/string)
 (s/def ::page-id ::us/uuid)
 (s/def ::file-id ::us/uuid)
@@ -30,52 +36,56 @@
 (s/def ::export
   (s/keys :req-un [::page-id ::file-id ::object-id
                    ::type ::suffix ::scale]))
+(s/def ::exports
+  (s/coll-of ::export :kind vector? :min-count 1))
 
-(s/def ::exports (s/coll-of ::export :kind vector? :min-count 1))
-(s/def ::params  (s/keys :req-un [::exports]))
+(s/def ::params
+  (s/keys :req-un [::exports]))
 
-(declare handle-single-export)
-(declare handle-multiple-export)
-(declare perform-export)
-(declare attach-filename)
-(declare attach-file-name)
-
-(defn export-handler
-  [{:keys [:request/params :request/cookies :request/auth-token] :as exchange}]
-  (let [exports (into []
-                      (comp (map #(assoc % :token auth-token))
-                            (attach-file-name))
-                      (->> (us/conform ::params params) :exports))]
-
+(defn handler
+  [{:keys [:request/auth-token] :as exchange} {:keys [exports] :as params}]
+  (let [xform   (comp
+                 (map #(assoc % :token auth-token))
+                 (assign-file-name))
+        exports (into [] xform exports)]
     (if (= 1 (count exports))
-      (-> (first exports)
-          (handle-single-export exchange))
-      (handle-multiple-export exports exchange))))
+      (handle-single-export exchange (assoc params :export (first exports)))
+      (handle-multiple-export exchange (assoc params :exports exports)))))
 
 (defn- handle-single-export
-  [params exchange]
-  (-> (perform-export params)
+  [exchange {:keys [export wait uri] :as params}]
+  (-> (run-export export)
       (p/then rsc/create-simple)
       (p/then (fn [resource]
                 (assoc exchange :response/body (dissoc resource :path))))))
 
 (defn- handle-multiple-export
-  [exports exchange]
-  (let [items       (map #(fn [] (perform-export %)) exports)
+  [exchange {:keys [exports wait uri] :as params}]
+  (let [items       (map #(fn [] (run-export %)) exports)
         topic       (-> exports first :file-id str)
-
         resource    (rsc/create :zip)
+
         on-progress (fn [data]
                       (let [data (assoc data :resource-id (:id resource))]
-                        (redis/pub! topic data)))]
+                        (redis/pub! topic data)))
 
-    (-> (rsc/create-zip :resource resource
-                        :items items
-                        :on-progress on-progress)
-        (p/then (fn [resource]
-                  (assoc exchange :response/body (dissoc resource :path)))))))
+        on-complete (fn [resource]
+                      (js/console.log "complete"))
 
-(defn- perform-export
+        on-error    (fn [cause]
+                      (js/console.error cause))
+
+        proc        (-> (rsc/create-zip :resource resource
+                                        :items items
+                                        :on-progress on-progress)
+                        (p/finally (fn [_ cause]
+                                     (when cause (on-error cause)))))]
+
+    (if wait
+      (p/then proc #(assoc exchange :response/body (dissoc % :path)))
+      (assoc exchange :response/body (dissoc resource :path)))))
+
+(defn- run-export
   [{:keys [type] :as params}]
   (p/let [res (case type
                 :png  (rb/render params)
@@ -84,7 +94,7 @@
                 :pdf  (rp/render params))]
     (assoc res :type type)))
 
-(defn- attach-file-name
+(defn- assign-file-name
   "A transducer that assocs a candidate filename and avoid duplicates."
   []
   (letfn [(find-candidate [params used]

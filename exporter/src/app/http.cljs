@@ -6,14 +6,17 @@
 
 (ns app.http
   (:require
+   [app.common.data.macros :as dm]
    [app.common.exceptions :as ex]
    [app.common.logging :as l]
+   [app.common.spec :as us]
    [app.config :as cf]
-   [app.http.resources :as rsc]
-   [app.http.export :refer [export-handler]]
+   [app.http.export :as export]
    ;; [app.http.export-frames :refer [export-frames-handler]]
    [app.http.impl :as impl]
+   [app.http.resources :as rsc]
    [app.util.transit :as t]
+   [clojure.spec.alpha :as s]
    [cuerdas.core :as str]
    [promesa.core :as p]
    [reitit.core :as r]))
@@ -52,16 +55,31 @@
             (assoc :response/body (t/encode data))
             (assoc :response/headers {"content-type" "application/transit+json"}))))))
 
+(defmulti command-spec :cmd)
+
+(s/def ::id ::us/string)
+(s/def ::uri ::us/string)
+(s/def ::wait ::us/boolean)
+(s/def ::cmd ::us/keyword)
+
+(defmethod command-spec :export-shapes [_] ::export/params)
+(defmethod command-spec :get-resource [_] (s/keys :req-un [::id]))
+
+(s/def ::params
+  (s/and (s/keys :req-un [::cmd]
+                 :opt-un [::wait ::uri])
+         (s/multi-spec command-spec :cmd)))
+
 (defn- handler
   [{:keys [:request/params] :as exchange}]
-  (case (:cmd params)
-    "get-resource"    (rsc/retrieve-handler exchange)
-    "export-single"   (export-handler exchange)
-    ;; :export-multiple (export-multiple-handler exchange)
-    ;; :export-frames   (export-frames-handler exchange)
-    (ex/raise :type :internal
-              :code :method-not-implemented
-              :hint "method not implemented")))
+  (let [{:keys [cmd] :as params} (us/conform ::params params)]
+    (case cmd
+      :get-resource  (rsc/retrieve-handler exchange)
+      :export-shapes (export/handler exchange params)
+      ;; "export-frames" (export-frames-handler exchange)
+      (ex/raise :type :internal
+                :code :method-not-implemented
+                :hint (dm/fmt "method % not implemented" cmd)))))
 
 (defn init
   []
