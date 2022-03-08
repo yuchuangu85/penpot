@@ -29,14 +29,11 @@
   [object-id page-id file-id name exports]
   ;; Force a persist before exporting otherwise the exported shape could be outdated
   (st/emit! ::dwp/force-persist)
-  (rp/query!
-   :export
-   {:cmd "export-single"
-    :page-id page-id
-    :file-id  file-id
-    :object-id object-id
-    :name name
-    :exports exports}))
+  (rp/query! :export-single {:page-id page-id
+                             :file-id  file-id
+                             :object-id object-id
+                             :name name
+                             :exports exports}))
 
 (defn use-download-export
   [shapes filename page-id file-id exports]
@@ -53,7 +50,7 @@
              (->> (request-export (:id (first shapes)) page-id file-id filename exports)
                   (rx/subs
                    (fn [body]
-                     (println "xxxxxxxxx" body)
+                     (println "xxxxxxxxx" filename body)
                      (dom/trigger-download filename body))
                    (fn [_error]
                      (swap! loading? not)

@@ -105,14 +105,22 @@
        (rx/map http/conditional-decode-transit)
        (rx/mapcat handle-response)))
 
-(defmethod query :export
+(defmethod query :export-single
   [_ params]
-  (->> (http/send! {:method :post
-                    :uri (u/join base-uri "export")
-                    :body (http/transit-data params)
-                    :credentials "include"
-                    :response-type :blob})
-       (rx/mapcat handle-response)))
+  (let [params (assoc params :cmd "export-single")]
+    (->> (http/send! {:method :post
+                      :uri (u/join base-uri "export")
+                      :body (http/transit-data params)
+                      :credentials "include"})
+         (rx/map http/conditional-decode-transit)
+         (rx/mapcat handle-response)
+         (rx/mapcat (fn [{:keys [id]}]
+                      (->> (http/send! {:method :get
+                                        :uri (u/join base-uri "export")
+                                        :query {:id id :cmd "get-resource"}
+                                        :credentials "include"
+                                        :response-type :blob})
+                           (rx/mapcat handle-response)))))))
 
 (defmethod query :export-frames
   [_ params]
