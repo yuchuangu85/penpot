@@ -25,40 +25,31 @@
 (s/def ::type ::us/keyword)
 (s/def ::suffix string?)
 (s/def ::scale number?)
-(s/def ::export  (s/keys :req-un [::type ::suffix ::scale]))
-(s/def ::exports (s/coll-of ::export :kind vector? :min-count 1))
 
-(s/def ::params
-  (s/keys :req-un [::page-id ::file-id ::object-id ::name ::exports]))
+(s/def ::export
+  (s/keys :req-un [::page-id ::file-id ::object-id
+                   ::type ::suffix ::scale]))
+
+(s/def ::exports (s/coll-of ::export :kind vector? :min-count 1))
+(s/def ::params  (s/keys :req-un [::exports]))
 
 (declare handle-single-export)
 (declare handle-multiple-export)
 (declare perform-export)
 (declare attach-filename)
+(declare attach-file-name)
 
 (defn export-handler
   [{:keys [:request/params :request/cookies :request/auth-token] :as exchange}]
-  (let [{:keys [exports page-id file-id object-id name]} (us/conform ::params params)]
+  (let [exports (into []
+                      (comp (map #(assoc % :token auth-token))
+                            (attach-file-name))
+                      (->> (us/conform ::params params) :exports))]
+
     (if (= 1 (count exports))
       (-> (first exports)
-          (assoc :name name)
-          (assoc :token auth-token)
-          (assoc :file-id file-id)
-          (assoc :page-id page-id)
-          (assoc :object-id object-id)
           (handle-single-export exchange))
-
-      (let [exports (->> exports
-                         (map (fn [item]
-                                (-> item
-                                    (assoc :name name)
-                                    (assoc :token auth-token)
-                                    (assoc :file-id file-id)
-                                    (assoc :page-id page-id)
-                                    (assoc :object-id object-id))))
-                         (attach-filename))]
-
-        (handle-multiple-export exports exchange)))))
+      (handle-multiple-export exports exchange))))
 
 (defn- handle-single-export
   [params exchange]
@@ -83,32 +74,30 @@
                 :pdf  (rp/render params))]
     (assoc res :type type)))
 
-(defn- find-filename-candidate
-  [params used]
-  (loop [index 0]
-    (let [candidate (str (:name params)
-                         (:suffix params "")
-                         (when (pos? index)
-                           (str "-" (inc index)))
-                         (case (:type params)
-                           :png  ".png"
-                           :jpeg ".jpg"
-                           :svg  ".svg"
-                           :pdf  ".pdf"))]
-      (if (contains? used candidate)
-        (recur (inc index))
-        candidate))))
-
-(defn- attach-filename
-  [exports]
-  (loop [exports (seq exports)
-         used   #{}
-         result  []]
-    (if (nil? exports)
-      result
-      (let [export    (first exports)
-            candidate (find-filename-candidate export used)
-            export    (assoc export :filename candidate)]
-        (recur (next exports)
-               (conj used candidate)
-               (conj result export))))))
+(defn- attach-file-name
+  "A transducer that assocs a candidate filename and avoid duplicates."
+  []
+  (letfn [(find-candidate [params used]
+            (loop [index 0]
+              (let [candidate (str (:name params)
+                                   (:suffix params "")
+                                   (when (pos? index)
+                                     (str "-" (inc index)))
+                                   (case (:type params)
+                                     :png  ".png"
+                                     :jpeg ".jpg"
+                                     :svg  ".svg"
+                                     :pdf  ".pdf"))]
+                (if (contains? used candidate)
+                  (recur (inc index))
+                  candidate))))]
+    (fn [rf]
+      (let [used (volatile! #{})]
+        (fn
+          ([] (rf))
+          ([result] (rf result))
+          ([result params]
+           (let [candidate (find-candidate params @used)
+                 params    (assoc params :filename candidate)]
+             (vswap! used conj candidate)
+             (rf result params))))))))
