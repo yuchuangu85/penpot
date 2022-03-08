@@ -26,6 +26,7 @@
    :http-server-port 6061
    :browser-concurrency 5
    :origin-white-list #{"http://localhost:3449"}
+   :redis-uri "redis://redis/0"
    :browser-strategy :incognito})
 
 (s/def ::browser-concurrency ::us/integer)

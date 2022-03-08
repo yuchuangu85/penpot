@@ -8,6 +8,7 @@
   (:require
    [app.common.exceptions :as exc :include-macros true]
    [app.common.spec :as us]
+   [app.redis :as redis]
    [app.http.resources :as rsc]
    [app.renderer.bitmap :as rb]
    [app.renderer.pdf :as rp]
@@ -60,8 +61,17 @@
 
 (defn- handle-multiple-export
   [exports exchange]
-  (let [items (map #(fn [] (perform-export %)) exports)]
-    (-> (rsc/create-zip items)
+  (let [items       (map #(fn [] (perform-export %)) exports)
+        topic       (-> exports first :file-id str)
+
+        resource    (rsc/create :zip)
+        on-progress (fn [data]
+                      (let [data (assoc data :resource-id (:id resource))]
+                        (redis/pub! topic data)))]
+
+    (-> (rsc/create-zip :resource resource
+                        :items items
+                        :on-progress on-progress)
         (p/then (fn [resource]
                   (assoc exchange :response/body (dissoc resource :path)))))))
 

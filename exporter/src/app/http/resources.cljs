@@ -47,20 +47,27 @@
      :id (dm/str (name type) "." task-id)}))
 
 (defn- write-as-zip!
-  [path items on-progress]
-  (let [^js zip (arc/create "zip")
-        ^js out (fs/createWriteStream path)
-        append! (fn [{:keys [data name] :as result}]
-                  (.append zip data #js {:name name}))]
+  [{:keys [id path]} items on-progress on-error]
+  (let [^js zip  (arc/create "zip")
+        ^js out  (fs/createWriteStream path)
+        append!  (fn [{:keys [data name] :as result}]
+                  (.append zip data #js {:name name}))
+        progress (atom 0)]
     (p/create
      (fn [resolve reject]
        (.on zip "error" #(reject %))
        (.on zip "end" resolve)
        (.on zip "entry" (fn [data]
-                          (js/console.log "on-entry" data)))
-       (.on zip "progress" (fn [data]
-                             (on-progress data)
-                             (js/console.log "on-progress" data)))
+                          (let [name (unchecked-get data "name")
+                                num  (swap! progress inc)]
+                            (on-progress
+                             {:total (count items)
+                              :id id
+                              :done num
+                              :name name}))))
+       #_(.on zip "progress" (fn [data]
+                               (on-progress data)
+                               (js/console.log "on-progress" data)))
        (.pipe zip out)
        (-> (reduce (fn [res export-fn]
                      (p/then res (fn [_] (-> (export-fn) (p/then append!)))))
@@ -78,12 +85,13 @@
 
 (defn create-zip
   "Creates a resource with multiple files merget into a single zip file."
-  ([items] (create-zip items {}))
-  ([items {:keys [on-progress] :or {on-progress identity}}]
-   (let [{:keys [path] :as resource} (create :zip)]
-     (-> (write-as-zip! path items on-progress)
-         (p/then #(fs-stat path))
-         (p/then #(merge resource %))))))
+  [& {:keys [resource items on-error on-progress]
+      :or {on-error identity
+           on-progress identity}}]
+  (let [{:keys [path id] :as resource} (or resource (create :zip))]
+    (-> (write-as-zip! resource items on-progress on-error)
+        (p/then #(fs-stat path))
+        (p/then #(merge resource %)))))
 
 (defn- lookup
   [id]
