@@ -31,7 +31,8 @@
   (st/emit! ::dwp/force-persist)
   (rp/query!
    :export
-   {:page-id page-id
+   {:cmd "export-single"
+    :page-id page-id
     :file-id  file-id
     :object-id object-id
     :name name
@@ -48,9 +49,11 @@
            (fn [event]
              (dom/prevent-default event)
              (swap! loading? not)
+             (println "ASDASDASD")
              (->> (request-export (:id (first shapes)) page-id file-id filename exports)
                   (rx/subs
                    (fn [body]
+                     (println "xxxxxxxxx" body)
                      (dom/trigger-download filename body))
                    (fn [_error]
                      (swap! loading? not)
