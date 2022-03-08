@@ -22,18 +22,20 @@
    [beicon.core :as rx]
    [rumext.alpha :as mf]))
 
-
 (def exports-attrs [:exports])
 
 (defn request-export
   [object-id page-id file-id name exports]
   ;; Force a persist before exporting otherwise the exported shape could be outdated
   (st/emit! ::dwp/force-persist)
-  (rp/query! :export-single {:page-id page-id
-                             :file-id  file-id
-                             :object-id object-id
-                             :name name
-                             :exports exports}))
+  (let [exports (mapv (fn [export]
+                        (assoc export
+                               :page-id page-id
+                               :file-id file-id
+                               :object-id object-id
+                               :name name))
+                      exports)]
+    (rp/query! :export-shapes {:exports exports :wait true})))
 
 (defn use-download-export
   [shapes filename page-id file-id exports]
