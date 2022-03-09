@@ -12,6 +12,7 @@
    [app.common.spec :as us]
    [app.config :as cf]
    [app.http.export :as export]
+   [app.http.export-frames :as export-frames]
    ;; [app.http.export-frames :refer [export-frames-handler]]
    [app.http.impl :as impl]
    [app.http.resources :as rsc]
@@ -22,10 +23,6 @@
    [reitit.core :as r]))
 
 (l/set-level! :info)
-
-;; (def routes
-;;   [["/export-frames" {:handler export-frames-handler}]
-;;    ["/export" {:handler export-handler}]])
 
 (def instance (atom nil))
 

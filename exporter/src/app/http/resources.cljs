@@ -30,7 +30,7 @@
     "png"  "image/png"
     "pdf"  "application/pdf"))
 
-(defn- fs-stat
+(defn fs-stat
   [path]
   (-> (.stat fs/promises path)
       (p/then (fn [data]
@@ -122,3 +122,10 @@
          (assoc :response/body stream)
          (assoc :response/headers headers)))))
 
+(defn create-tmpdir!
+  [prefix]
+  (.mkdtemp fs/promises prefix))
+
+(defn move!
+  [origin-path dest-path]
+  (.rename fs/promises origin-path dest-path))

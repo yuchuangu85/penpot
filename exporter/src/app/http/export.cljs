@@ -86,14 +86,11 @@
                                   :cause (ex-message cause)}]
                         (redis/pub! topic data)))
 
-        proc        (-> (rsc/create-zip :resource resource
-                                        :items items
-                                        :on-progress on-progress
-                                        :on-complete on-complete
-                                        :on-error on-error)
-                        (p/finally (fn [_ cause]
-                                     (when cause (on-error cause)))))]
-
+        proc        (rsc/create-zip :resource resource
+                                    :items items
+                                    :on-progress on-progress
+                                    :on-complete on-complete
+                                    :on-error on-error)]
     (if wait
       (p/then proc #(assoc exchange :response/body (dissoc % :path)))
       (assoc exchange :response/body (dissoc resource :path)))))

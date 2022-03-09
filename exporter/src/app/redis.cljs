@@ -6,10 +6,11 @@
 
 (ns app.redis
   (:require
+   ["ioredis" :as redis]
+   [app.common.data.macros :as dm]
    [app.common.logging :as l]
    [app.common.transit :as t]
-   [app.config :as cf]
-   ["ioredis" :as redis]))
+   [app.config :as cf]))
 
 (l/set-level! :trace)
 
