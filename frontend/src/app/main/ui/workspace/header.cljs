@@ -228,15 +228,14 @@
          (mf/deps file frames)
          (fn [_]
            (when (seq frames)
-             (let [filename  (str (:name file) ".pdf")
-                   frame-ids (mapv :id frames)]
-               (st/emit! (dm/info (tr "workspace.options.exporting-object")
-                                  {:timeout nil}))
-               (->> (rp/query! :export-frames
-                               {:name     (:name file)
-                                :file-id  (:id file)
-                                :page-id   page-id
-                                :frame-ids frame-ids})
+             (let [filename (str (:name file) ".pdf")
+                   xform    (comp (map :id)
+                                  (map (fn [id]
+                                         {:file-id  (:id file)
+                                          :page-id   page-id
+                                          :frame-id id})))]
+               (st/emit! (dm/info (tr "workspace.options.exporting-object") {:timeout nil}))
+               (->> (rp/query! :export-frames (into [] xform frames))
                     (rx/subs
                      (fn [body]
                        (dom/trigger-download filename body))

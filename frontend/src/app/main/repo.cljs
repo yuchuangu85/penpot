@@ -8,7 +8,7 @@
   (:require
    [app.common.data :as d]
    [app.common.uri :as u]
-   [app.config :as cfg]
+   [app.config :as cf]
    [app.util.http :as http]
    [beicon.core :as rx]))
 
@@ -40,7 +40,7 @@
                :status status
                :data body})))
 
-(def ^:private base-uri cfg/public-uri)
+(def ^:private base-uri cf/public-uri)
 
 (defn- send-query!
   "A simple helper for send and receive transit data on the penpot
@@ -147,13 +147,17 @@
        (rx/mapcat handle-response)))
 
 (defmethod query :export-frames
-  [_ params]
-  (->> (http/send! {:method :post
-                    :uri (u/join base-uri "export-frames")
-                    :body (http/transit-data params)
-                    :credentials "include"
-                    :response-type :blob})
-       (rx/mapcat handle-response)))
+  [_ exports]
+  (let [params {:uri (str base-uri)
+                :cmd :export-frames
+                :wait true
+                :exports exports}]
+    (->> (http/send! {:method :post
+                      :uri (u/join base-uri "export")
+                      :body (http/transit-data params)
+                      :credentials "include"
+                      :response-type :blob})
+         (rx/mapcat handle-response))))
 
 (derive :upload-file-media-object ::multipart-upload)
 (derive :update-profile-photo ::multipart-upload)
