@@ -60,6 +60,7 @@
 (s/def ::cmd ::us/keyword)
 
 (defmethod command-spec :export-shapes [_] ::export/params)
+(defmethod command-spec :export-frames [_] ::export-frames/params)
 (defmethod command-spec :get-resource [_] (s/keys :req-un [::id]))
 
 (s/def ::params
@@ -73,7 +74,7 @@
     (case cmd
       :get-resource  (rsc/retrieve-handler exchange)
       :export-shapes (export/handler exchange params)
-      ;; "export-frames" (export-frames-handler exchange)
+      :export-frames (export-frames/handler exchange params)
       (ex/raise :type :internal
                 :code :method-not-implemented
                 :hint (dm/fmt "method % not implemented" cmd)))))

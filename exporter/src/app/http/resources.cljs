@@ -11,6 +11,7 @@
    ["fs" :as fs]
    ["os" :as os]
    ["path" :as path]
+   [app.util.shell :as sh]
    [app.common.data :as d]
    [app.common.data.macros :as dm]
    [app.common.exceptions :as ex]
@@ -76,7 +77,7 @@
   [{:keys [type data] :as params}]
   (let [{:keys [path] :as resource} (create type)]
     (-> (.writeFile fs/promises path data)
-        (p/then #(fs-stat path))
+        (p/then #(sh/stat path))
         (p/then #(merge resource %)))))
 
 (defn create-zip
@@ -87,20 +88,19 @@
            on-complete identity}}]
   (let [{:keys [path id] :as resource} (or resource (create :zip))]
     (-> (write-as-zip! resource items on-progress)
-        (p/then #(fs-stat path))
+        (p/then #(sh/stat path))
         (p/then #(merge resource %))
         (p/finally (fn [result cause]
                      (if cause
                        (on-error cause)
                        (on-complete result)))))))
 
-
 (defn- lookup
   [id]
   (p/let [[type task-id] (str/split id "." 2)
           path  (get-path type task-id)
           mtype (get-mtype type)
-          stat  (fs-stat path)]
+          stat  (sh/stat path)]
 
     (when-not stat
       (ex/raise :type :not-found))
@@ -121,11 +121,3 @@
          (assoc :response/status 200)
          (assoc :response/body stream)
          (assoc :response/headers headers)))))
-
-(defn create-tmpdir!
-  [prefix]
-  (.mkdtemp fs/promises prefix))
-
-(defn move!
-  [origin-path dest-path]
-  (.rename fs/promises origin-path dest-path))
