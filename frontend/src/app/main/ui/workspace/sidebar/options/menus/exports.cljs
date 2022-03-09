@@ -25,6 +25,21 @@
 
 (def exports-attrs [:exports])
 
+;; TODO: move somewhere?
+(defn store-export-task-id
+  [id total filename]
+  (ptk/reify ::store-export-task-id
+    ptk/UpdateEvent
+    (update [_ state]
+      (-> state
+          (assoc-in [:workspace-global :export-in-progress] true)
+          (assoc-in [:workspace-global :export-widget-visibililty] true)
+          (assoc-in [:workspace-global :export-detail-visibililty] true)
+          (assoc-in [:workspace-global :export-total] total)
+          (assoc-in [:workspace-global :export-progress] 0)
+          (assoc-in [:workspace-global :export-task-id] id)
+          (assoc-in [:workspace-global :export-filename] filename)))))
+
 (defn request-export
   [object-id page-id file-id name exports]
   ;; Force a persist before exporting otherwise the exported shape could be outdated
@@ -41,11 +56,13 @@
 (defn use-download-export
   [shapes filename page-id file-id exports]
   (let [loading? (mf/use-state false)
+        ;; TODO: hacer el loading global
 
         on-download-callback
         (mf/use-callback
          (mf/deps filename shapes page-id file-id exports)
-         (if (= (count shapes) 1)
+         (cond
+           (and (= (count shapes) 1) (= (count exports) 1))
            (fn [event]
              (dom/prevent-default event)
              (swap! loading? not)
@@ -59,12 +76,34 @@
                    (fn []
                      (swap! loading? not)))))
 
+           (and (= (count shapes) 1) (> (count exports) 1))
            (fn [event]
-             (dom/prevent-default event)
-             (st/emit!
-              (modal/show
-               {:type :export-shapes
-                :shapes shapes})))))]
+             (let [shape (first shapes)
+                   exports (-> (mapv #(assoc %
+                                             :page-id page-id
+                                             :file-id file-id
+                                             :object-id (:id shape)
+                                             :name (:name shape))
+                                     exports)
+                               flatten
+                               vec)]
+               (dom/prevent-default event)
+               (->> (rp/query! :export-shapes-multiple exports)
+                    (rx/subs
+                     (fn [body]
+                       (st/emit!
+                        (modal/show
+                         {:type :export-progress-dialog}))
+                       (st/emit! (store-export-task-id (:id body) (count exports) filename)))
+                     (fn [_error]
+                       (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
+             :else
+             (fn [event]
+               (dom/prevent-default event)
+               (st/emit!
+                (modal/show
+                 {:type :export-shapes
+                  :shapes shapes})))))]
 
     [on-download-callback @loading?]))
 
@@ -72,22 +111,6 @@
   [ids filename page-id file-id exports]
   (let [objects (deref (refs/objects-by-id ids))]
     (use-download-export objects filename page-id file-id exports)))
-
-;; TODO: move somewhere?
-(defn store-export-task-id
-  [id total filename]
-  (ptk/reify ::store-export-task-id
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (assoc-in [:workspace-global :export-in-progress] true)
-          (assoc-in [:workspace-global :export-widget-visibililty] true)
-          (assoc-in [:workspace-global :export-detail-visibililty] true)
-          (assoc-in [:workspace-global :export-total] total)
-          (assoc-in [:workspace-global :export-progress] 0)
-          (assoc-in [:workspace-global :export-task-id] id)
-          (assoc-in [:workspace-global :export-filename] filename))
-      )))
 
 (mf/defc export-shapes-dialog
   {::mf/register modal/components
@@ -192,8 +215,7 @@
                     [:span i/checkbox-unchecked])]
 
                  [:div.field.image
-                  [:svg {;;  :id "screenshot"
-                         :view-box (str (get-in shape[:selrect :x]) " " (get-in shape [:selrect :y]) " " (get-in shape [:selrect :width]) " " (get-in shape [:selrect :height]))
+                  [:svg {:view-box (str (get-in shape[:selrect :x]) " " (get-in shape [:selrect :y]) " " (get-in shape [:selrect :width]) " " (get-in shape [:selrect :height]))
                          :width 24
                          :height 20
                          :version "1.1"
