@@ -105,8 +105,8 @@
        (rx/map http/conditional-decode-transit)
        (rx/mapcat handle-response)))
 
-(defmethod query :export-shapes
-  [_ params]
+(defmethod query :export-shapes-simple
+  [_ exports]
   (letfn [(send-command [& {:keys [cmd params blob?]}]
             (->> (http/send! {:method :post
                               :uri (u/join base-uri "export")
@@ -116,9 +116,25 @@
                  (rx/map http/conditional-decode-transit)
                  (rx/mapcat handle-response)))]
 
-    (->> (rx/of params)
+    (->> (rx/of {:wait true
+                 :exports exports})
          (rx/mapcat #(send-command :cmd :export-shapes :params % :blob? false))
          (rx/mapcat #(send-command :cmd :get-resource :params % :blob? true)))))
+
+(defmethod query :export-shapes-multiple
+  [_ exports]
+  (letfn [(send-command [& {:keys [cmd params blob?]}]
+            (->> (http/send! {:method :post
+                              :uri (u/join base-uri "export")
+                              :body (http/transit-data (assoc params :cmd cmd))
+                              :credentials "include"
+                              :response-type (if blob? :blob :text)})
+                 (rx/map http/conditional-decode-transit)
+                 (rx/mapcat handle-response)))]
+
+    (->> (rx/of {:wait false
+                 :exports exports})
+         (rx/mapcat #(send-command :cmd :export-shapes :params % :blob? false)))))
 
 (defmethod query :export-frames
   [_ params]

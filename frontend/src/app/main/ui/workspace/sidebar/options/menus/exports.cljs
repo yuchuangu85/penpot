@@ -20,6 +20,7 @@
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer  [tr, c]]
    [beicon.core :as rx]
+   [potok.core :as ptk]
    [rumext.alpha :as mf]))
 
 (def exports-attrs [:exports])
@@ -35,7 +36,7 @@
                                :object-id object-id
                                :name name))
                       exports)]
-    (rp/query! :export-shapes {:exports exports :wait true})))
+    (rp/query! :export-shapes-simple exports)))
 
 (defn use-download-export
   [shapes filename page-id file-id exports]
@@ -48,11 +49,9 @@
            (fn [event]
              (dom/prevent-default event)
              (swap! loading? not)
-             (println "ASDASDASD")
              (->> (request-export (:id (first shapes)) page-id file-id filename exports)
                   (rx/subs
                    (fn [body]
-                     (println "xxxxxxxxx" filename body)
                      (dom/trigger-download filename body))
                    (fn [_error]
                      (swap! loading? not)
@@ -74,11 +73,28 @@
   (let [objects (deref (refs/objects-by-id ids))]
     (use-download-export objects filename page-id file-id exports)))
 
+;; TODO: move somewhere?
+(defn store-export-task-id
+  [id]
+  (ptk/reify ::store-export-task-id
+    ptk/UpdateEvent
+    (update [_ state]
+      (println "--------->xxxxxx " id)
+            ;; TODO: remove
+      (-> state
+          (assoc-in [:workspace-global :export-detail-visibililty] true)
+          (assoc-in [:workspace-global :export-total] (+ 1000 (rand-int 1000)))
+          (assoc-in [:workspace-global :export-progress] 0)
+          (assoc-in [:workspace-global :export-task-id] id))
+      )))
+
 (mf/defc export-shapes-dialog
   {::mf/register modal/components
    ::mf/register-as :export-shapes}
   [{:keys [shapes]}]
-  (let [selected (wsh/lookup-selected @st/state)
+  (let [page-id (:current-page-id @st/state)
+        file-id (:current-file-id @st/state)
+        selected (wsh/lookup-selected @st/state)
         shapes (if (some? shapes)
                  shapes
                  (if (> (count selected) 0)
@@ -86,7 +102,14 @@
                    (->> (wsh/lookup-page-objects @st/state)
                         vals
                         (filter #(> (count (:exports %)) 0)))))
-        exports (mf/use-state (mapv (fn [shape] (assoc shape :exports (mapv #(assoc % :enabled true) (:exports shape)))) shapes))
+        exports (mf/use-state (mapv (fn [shape]
+                                      (assoc shape :exports (mapv #(assoc %
+                                                                          :enabled true
+                                                                          :page-id page-id
+                                                                          :file-id file-id
+                                                                          :object-id (:id shape)
+                                                                          :name "TODO")
+                                                                  (:exports shape)))) shapes))
         checked (->> (map :exports @exports)
                      (flatten)
                      (filter #(get % :enabled)))
@@ -111,11 +134,18 @@
          (mf/deps @exports)
          (fn [event]
            (dom/prevent-default event)
-           (println "OK" (->> (map :exports @exports)
-                              (flatten)
-                              (filter #(get % :enabled))))
-           ;; TODO: filtrar los enabled y llamar donde sea necesario
-           ))
+           (->> (rp/query! :export-shapes-multiple (->> (map :exports @exports)
+                                                        (flatten)
+                                                        (filterv #(get % :enabled))))
+                (rx/subs
+                 (fn [body]
+                   (st/emit! (modal/hide))
+                   (st/emit!
+                    (modal/show
+                     {:type :export-progress-dialog}))
+                   (st/emit! (store-export-task-id (:id body))))
+                 (fn [_error]
+                   (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
 
         on-change-handler
         (fn [_ shape-index export-index]

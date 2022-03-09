@@ -88,14 +88,16 @@
 
 (defn- process-message
   [{:keys [type] :as msg}]
-  (case type
+  (let [_ (println "process-message" msg)]
+    (case type
     :connect        (handle-presence msg)
     :presence       (handle-presence msg)
     :disconnect     (handle-presence msg)
     :pointer-update (handle-pointer-update msg)
     :file-change    (handle-file-change msg)
     :library-change (handle-library-change msg)
-    (ptk/event :websocket-event msg)))
+    ::unknown))
+  )
 
 (defn- send-keepalive
   [file-id]
@@ -180,7 +182,6 @@
       ptk/UpdateEvent
       (update [_ state]
         ;; (let [profiles (:users state)]
-        (println "xxxxxxxx" message)
         (if (= :disconnect type)
           (update state :workspace-presence dissoc session-id)
           (update state :workspace-presence update-presence))))))

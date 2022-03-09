@@ -50,7 +50,8 @@
 
 (defn message?
   [msg]
-  (= (:type msg) :message))
+  (let [_ (println "message?" msg)]
+    (= (:type msg) :message)))
 
 (defn send!
   [ws msg]

@@ -65,7 +65,6 @@
         circumference (* 2 Math/PI 12)
         pct (- circumference (* circumference export))]
     [:div.export-progress-widget {:on-click (->
-                                             (println "HOLA")
                                              (st/emit!
                                               (modal/show
                                                {:type :export-progress-dialog}))
