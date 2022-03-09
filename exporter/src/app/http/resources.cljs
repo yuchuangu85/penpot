@@ -47,7 +47,7 @@
      :id (dm/str (name type) "." task-id)}))
 
 (defn- write-as-zip!
-  [{:keys [id path]} items on-progress on-error]
+  [{:keys [id path]} items on-progress]
   (let [^js zip  (arc/create "zip")
         ^js out  (fs/createWriteStream path)
         append!  (fn [{:keys [data name] :as result}]
@@ -62,12 +62,8 @@
                                 num  (swap! progress inc)]
                             (on-progress
                              {:total (count items)
-                              :id id
                               :done num
                               :name name}))))
-       #_(.on zip "progress" (fn [data]
-                               (on-progress data)
-                               (js/console.log "on-progress" data)))
        (.pipe zip out)
        (-> (reduce (fn [res export-fn]
                      (p/then res (fn [_] (-> (export-fn) (p/then append!)))))
@@ -85,13 +81,19 @@
 
 (defn create-zip
   "Creates a resource with multiple files merget into a single zip file."
-  [& {:keys [resource items on-error on-progress]
+  [& {:keys [resource items on-error on-progress on-complete]
       :or {on-error identity
-           on-progress identity}}]
+           on-progress identity
+           on-complete identity}}]
   (let [{:keys [path id] :as resource} (or resource (create :zip))]
-    (-> (write-as-zip! resource items on-progress on-error)
+    (-> (write-as-zip! resource items on-progress)
         (p/then #(fs-stat path))
-        (p/then #(merge resource %)))))
+        (p/then #(merge resource %))
+        (p/finally (fn [result cause]
+                     (if cause
+                       (on-error cause)
+                       (on-complete result)))))))
+
 
 (defn- lookup
   [id]

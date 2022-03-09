@@ -65,19 +65,32 @@
         topic       (-> exports first :file-id str)
         resource    (rsc/create :zip)
 
-        on-progress (fn [data]
-                      (let [data (assoc data :resource-id (:id resource))]
+        on-progress (fn [progress]
+                      (let [data {:type :export-update
+                                  :resource-id (:id resource)
+                                  :status "running"
+                                  :progress progress}]
                         (redis/pub! topic data)))
 
         on-complete (fn [resource]
-                      (js/console.log "complete"))
+                      (let [data {:type :export-update
+                                  :resource-id (:id resource)
+                                  :size (:size resource)
+                                  :status "ended"}]
+                        (redis/pub! topic data)))
 
         on-error    (fn [cause]
-                      (js/console.error cause))
+                      (let [data {:type :export-update
+                                  :resource-id (:id resource)
+                                  :status "error"
+                                  :cause (ex-message cause)}]
+                        (redis/pub! topic data)))
 
         proc        (-> (rsc/create-zip :resource resource
                                         :items items
-                                        :on-progress on-progress)
+                                        :on-progress on-progress
+                                        :on-complete on-complete
+                                        :on-error on-error)
                         (p/finally (fn [_ cause]
                                      (when cause (on-error cause)))))]
 
