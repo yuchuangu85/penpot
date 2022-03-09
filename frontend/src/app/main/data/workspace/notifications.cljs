@@ -266,7 +266,7 @@
         (->> (rp/query! :download-export-resource resource-id)
              (rx/subs
               (fn [body]
-                (dom/trigger-download "asd" body))
+                (dom/trigger-download (get-in state [:workspace-global :export-filename]) body))
               (fn [_error]
                 #_(st/emit! (dm/error (tr "errors.unexpected-error"))))))))
 
@@ -282,5 +282,5 @@
         (->
          (assoc-in [:workspace-global :export-in-progress] false)
          (assoc-in [:workspace-global :export-widget-visibililty] false)
-         ;; TODO: esto debería de dejar pasar unos segundos
-         (assoc-in [:workspace-global :export-widget-visibililty] false))))))
+         ;; TODO: esto debería de dejar pasar unos segundos y luego ocultarlo realmente
+         (assoc-in [:workspace-global :export-detail-visibililty] false))))))

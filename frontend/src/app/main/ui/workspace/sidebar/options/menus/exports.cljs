@@ -75,19 +75,18 @@
 
 ;; TODO: move somewhere?
 (defn store-export-task-id
-  [id total]
+  [id total filename]
   (ptk/reify ::store-export-task-id
     ptk/UpdateEvent
     (update [_ state]
-      (println "--------->xxxxxx " id)
-      ;; TODO
       (-> state
           (assoc-in [:workspace-global :export-in-progress] true)
           (assoc-in [:workspace-global :export-widget-visibililty] true)
           (assoc-in [:workspace-global :export-detail-visibililty] true)
           (assoc-in [:workspace-global :export-total] total)
           (assoc-in [:workspace-global :export-progress] 0)
-          (assoc-in [:workspace-global :export-task-id] id))
+          (assoc-in [:workspace-global :export-task-id] id)
+          (assoc-in [:workspace-global :export-filename] filename))
       )))
 
 (mf/defc export-shapes-dialog
@@ -95,6 +94,7 @@
    ::mf/register-as :export-shapes}
   [{:keys [shapes]}]
   (let [page-id (:current-page-id @st/state)
+        page (wsh/lookup-page @st/state)
         file-id (:current-file-id @st/state)
         selected (wsh/lookup-selected @st/state)
         shapes (if (some? shapes)
@@ -110,7 +110,7 @@
                                                                           :page-id page-id
                                                                           :file-id file-id
                                                                           :object-id (:id shape)
-                                                                          :name "TODO")
+                                                                          :name (:name shape))
                                                                   (:exports shape)))) shapes))
 
         enabled-exports (->> (map :exports @exports)
@@ -148,7 +148,7 @@
                    (st/emit!
                     (modal/show
                      {:type :export-progress-dialog}))
-                   (st/emit! (store-export-task-id (:id body) (count enabled-exports))))
+                   (st/emit! (store-export-task-id (:id body) (count enabled-exports) (:name page))))
                  (fn [_error]
                    (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
 
