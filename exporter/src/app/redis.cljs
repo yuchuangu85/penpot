@@ -43,9 +43,11 @@
                   (when client (.quit ^js client))
                   nil)))
 
+(def ^:private tenant (cf/get :tenant))
+
 (defn pub!
   [topic payload]
-  (let [payload (if (map? payload) (t/encode-str payload) payload)]
+  (let [payload (if (map? payload) (t/encode-str payload) payload)
+        topic   (dm/str tenant "." topic)]
     (when-let [client @client]
-      (l/trace :hint "redis api call" :fn "pub!" :payload payload)
       (.publish ^js client topic payload))))
