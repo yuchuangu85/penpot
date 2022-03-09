@@ -10,8 +10,8 @@
    [app.common.exceptions :as ex]
    [app.common.logging :as l]
    [app.common.spec :as us]
+   [app.common.transit :as t]
    [app.config :as cfg]
-   [app.util.blob :as blob]
    [app.util.time :as dt]
    [clojure.core.async :as a]
    [clojure.spec.alpha :as s]
@@ -194,7 +194,7 @@
                       ;; There are no back pressure, so we use a slidding
                       ;; buffer for cases when the pubsub broker sends
                       ;; more messages that we can process.
-                      (let [val {:topic topic :message (blob/decode message)}]
+                      (let [val {:topic topic :message (t/decode message)}]
                         (when-not (a/offer! rcv-ch val)
                           (l/warn :msg "dropping message on subscription loop"))))
                     (psubscribed [_ _pattern _count])
@@ -285,7 +285,7 @@
 
 (defn- impl-redis-pub
   [^RedisAsyncCommands rac {:keys [topic message]}]
-  (let [message (blob/encode message)
+  (let [message (t/encode message)
         res     (a/chan 1)]
     (-> (.publish rac ^String topic ^bytes message)
         (p/finally (fn [_ e]
