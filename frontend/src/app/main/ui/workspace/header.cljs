@@ -469,7 +469,8 @@
      [:div.right-area
       [:div.options-section
        [:& persistence-state-widget]
-       [:& export-progress-widget]
+       (when export-in-progress
+         [:& export-progress-widget])
        [:button.document-history
         {:alt (tr "workspace.sidebar.history" (sc/get-tooltip :toggle-history))
          :class (when (contains? layout :document-history) "selected")

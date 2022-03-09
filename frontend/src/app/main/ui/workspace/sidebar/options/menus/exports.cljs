@@ -82,6 +82,8 @@
       (println "--------->xxxxxx " id)
             ;; TODO: remove
       (-> state
+          (assoc-in [:workspace-global :export-in-progress] true)
+          (assoc-in [:workspace-global :export-widget-visibililty] true)
           (assoc-in [:workspace-global :export-detail-visibililty] true)
           (assoc-in [:workspace-global :export-total] (+ 1000 (rand-int 1000)))
           (assoc-in [:workspace-global :export-progress] 0)
