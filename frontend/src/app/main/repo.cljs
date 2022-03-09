@@ -136,6 +136,18 @@
                  :exports exports})
          (rx/mapcat #(send-command :cmd :export-shapes :params % :blob? false)))))
 
+
+
+(defmethod query :download-shapes-multiple
+  [_ id]
+  (->> (http/send! {:method :get
+                    :uri (u/join base-uri "export")
+                    :query {:cmd :get-resource :id id}
+                    :credentials "include"
+                    :response-type :blob})
+       (rx/map http/conditional-decode-transit)
+       (rx/mapcat handle-response)))
+
 (defmethod query :export-frames
   [_ params]
   (->> (http/send! {:method :post

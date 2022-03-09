@@ -16,7 +16,9 @@
    [app.main.data.workspace.changes :as dch]
    [app.main.data.workspace.libraries :as dwl]
    [app.main.data.workspace.persistence :as dwp]
+   [app.main.repo :as rp]
    [app.main.streams :as ms]
+   [app.util.dom :as dom]
    [app.util.time :as dt]
    [app.util.websockets :as ws]
    [beicon.core :as rx]
@@ -30,6 +32,7 @@
 (declare handle-file-change)
 (declare handle-library-change)
 (declare handle-pointer-send)
+(declare handle-export-update)
 (declare send-keepalive)
 
 (s/def ::type keyword?)
@@ -90,13 +93,14 @@
   [{:keys [type] :as msg}]
   (let [_ (println "process-message" msg)]
     (case type
-    :connect        (handle-presence msg)
-    :presence       (handle-presence msg)
-    :disconnect     (handle-presence msg)
-    :pointer-update (handle-pointer-update msg)
-    :file-change    (handle-file-change msg)
-    :library-change (handle-library-change msg)
-    ::unknown))
+      :connect        (handle-presence msg)
+      :presence       (handle-presence msg)
+      :disconnect     (handle-presence msg)
+      :pointer-update (handle-pointer-update msg)
+      :file-change    (handle-file-change msg)
+      :library-change (handle-library-change msg)
+      :export-update  (handle-export-update msg)
+      ::unknown))
   )
 
 (defn- send-keepalive
@@ -244,3 +248,44 @@
         (rx/of (dwl/ext-library-changed file-id modified-at revn changes)
                (dwl/notify-sync-file file-id))))))
 
+;; TODO: review this
+;; size
+;; progress
+(s/def ::export-update-event
+  (s/keys :req-un [::type
+                   ::resource-id
+                   ::status]))
+
+(defn handle-export-update
+  [{:keys [resource-id status] :as msg}]
+  ;; (us/assert ::export-update-event msg)
+  (ptk/reify ::handle-export-update
+    ptk/UpdateEvent
+    (update [_ state]
+      (cond
+        (= status "running")
+        (-> state
+         (assoc-in [:workspace-global :export-total] (get-in msg [:progress :total]))
+         (assoc-in [:workspace-global :export-progress] (get-in msg [:progress :done])))
+
+        (= status "ended")
+        #_(-> state)
+
+        (->> (rp/query! :download-shapes-multiple resource-id)
+                  (rx/subs
+                   (fn [body]
+                     (println "XXXXXXXXXXXXXXXXXXXX" body)
+                     (dom/trigger-download "asd" body))
+                   (fn [_error]
+                     ;; TODO
+                     #_(st/emit! (dm/error (tr "errors.unexpected-error"))))))
+
+        
+        #_(rx/of (rp/query! :download-shapes-multiple resource-id))))))
+        ;; (->
+        ;;  (assoc-in [:workspace-global :export-in-progress] false)
+        ;;  (assoc-in [:workspace-global :export-widget-visibililty] false))))))
+
+;; {:type :export-update, :resource-id zip.529d8e40-9f9a-11ec-a2e2-678f2aaef9cd, :status running, :progress {:total 2, :done 1, :name TODO.png}}
+;; {:type :export-update, :resource-id zip.529d8e40-9f9a-11ec-a2e2-678f2aaef9cd, :status running, :progress {:total 2, :done 2, :name TODO-2.png}}
+;; {:type :export-update, :resource-id zip.529d8e40-9f9a-11ec-a2e2-678f2aaef9cd, :size 5579, :status ended}
