@@ -95,7 +95,7 @@
     :pointer-update (handle-pointer-update msg)
     :file-change    (handle-file-change msg)
     :library-change (handle-library-change msg)
-    ::unknown))
+    (ptk/event :websocket-event msg)))
 
 (defn- send-keepalive
   [file-id]
