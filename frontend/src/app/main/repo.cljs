@@ -136,9 +136,7 @@
                  :exports exports})
          (rx/mapcat #(send-command :cmd :export-shapes :params % :blob? false)))))
 
-
-
-(defmethod query :download-shapes-multiple
+(defmethod query :download-export-resource
   [_ id]
   (->> (http/send! {:method :get
                     :uri (u/join base-uri "export")

@@ -258,34 +258,29 @@
 
 (defn handle-export-update
   [{:keys [resource-id status] :as msg}]
-  ;; (us/assert ::export-update-event msg)
+  (us/assert ::export-update-event msg)
   (ptk/reify ::handle-export-update
+    ptk/WatchEvent
+    (watch [_ state _]
+      (when (not (get-in state [:workspace-global :export-in-progress]))
+        (->> (rp/query! :download-export-resource resource-id)
+             (rx/subs
+              (fn [body]
+                (dom/trigger-download "asd" body))
+              (fn [_error]
+                #_(st/emit! (dm/error (tr "errors.unexpected-error"))))))))
+
     ptk/UpdateEvent
     (update [_ state]
-      (cond
+      (cond-> state
         (= status "running")
-        (-> state
+        (->
          (assoc-in [:workspace-global :export-total] (get-in msg [:progress :total]))
          (assoc-in [:workspace-global :export-progress] (get-in msg [:progress :done])))
 
         (= status "ended")
-        #_(-> state)
-
-        (->> (rp/query! :download-shapes-multiple resource-id)
-                  (rx/subs
-                   (fn [body]
-                     (println "XXXXXXXXXXXXXXXXXXXX" body)
-                     (dom/trigger-download "asd" body))
-                   (fn [_error]
-                     ;; TODO
-                     #_(st/emit! (dm/error (tr "errors.unexpected-error"))))))
-
-        
-        #_(rx/of (rp/query! :download-shapes-multiple resource-id))))))
-        ;; (->
-        ;;  (assoc-in [:workspace-global :export-in-progress] false)
-        ;;  (assoc-in [:workspace-global :export-widget-visibililty] false))))))
-
-;; {:type :export-update, :resource-id zip.529d8e40-9f9a-11ec-a2e2-678f2aaef9cd, :status running, :progress {:total 2, :done 1, :name TODO.png}}
-;; {:type :export-update, :resource-id zip.529d8e40-9f9a-11ec-a2e2-678f2aaef9cd, :status running, :progress {:total 2, :done 2, :name TODO-2.png}}
-;; {:type :export-update, :resource-id zip.529d8e40-9f9a-11ec-a2e2-678f2aaef9cd, :size 5579, :status ended}
+        (->
+         (assoc-in [:workspace-global :export-in-progress] false)
+         (assoc-in [:workspace-global :export-widget-visibililty] false)
+         ;; TODO: esto debería de dejar pasar unos segundos
+         (assoc-in [:workspace-global :export-widget-visibililty] false))))))
