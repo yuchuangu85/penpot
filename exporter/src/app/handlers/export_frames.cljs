@@ -4,13 +4,13 @@
 ;;
 ;; Copyright (c) UXBOX Labs SL
 
-(ns app.http.export-frames
+(ns app.handlers.export-frames
   (:require
    ["path" :as path]
    [app.common.data.macros :as dm]
    [app.common.exceptions :as exc :include-macros true]
    [app.common.spec :as us]
-   [app.http.resources :as rsc]
+   [app.handlers.resources :as rsc]
    [app.redis :as redis]
    [app.renderer.pdf :as rp]
    [app.util.shell :as sh]
@@ -50,6 +50,7 @@
         resource    (rsc/create :pdf)
 
         on-progress (fn [progress]
+                      (prn "PROGRESS" progress)
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
                                   :status "running"
@@ -57,6 +58,7 @@
                         (redis/pub! topic data)))
 
         on-complete (fn [resource]
+                      (prn "COMPLETE")
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
                                   :size (:size resource)

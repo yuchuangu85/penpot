@@ -6,82 +6,157 @@
 
 (ns app.http
   (:require
-   [app.common.data.macros :as dm]
-   [app.common.exceptions :as ex]
+   ["cookies" :as Cookies]
+   ["http" :as http]
+   ["inflation" :as inflate]
+   ["raw-body" :as raw-body]
+   ["stream" :as stream]
    [app.common.logging :as l]
    [app.common.spec :as us]
+   [app.common.transit :as t]
    [app.config :as cf]
-   [app.http.export :as export]
-   [app.http.export-frames :as export-frames]
-   ;; [app.http.export-frames :refer [export-frames-handler]]
-   [app.http.impl :as impl]
-   [app.http.resources :as rsc]
-   [app.util.transit :as t]
-   [clojure.spec.alpha :as s]
+   [app.handlers :as handlers]
    [cuerdas.core :as str]
-   [promesa.core :as p]
-   [reitit.core :as r]))
+   [lambdaisland.uri :as u]
+   [promesa.core :as p]))
 
 (l/set-level! :info)
 
+(defprotocol IStreamableResponseBody
+  (write-body! [_ response]))
+
+(extend-protocol IStreamableResponseBody
+  string
+  (write-body! [data response]
+    (.write ^js response data)
+    (.end ^js response))
+
+  js/Buffer
+  (write-body! [data response]
+    (.write ^js response data)
+    (.end ^js response))
+
+  stream/Stream
+  (write-body! [data response]
+    (.pipe ^js data response)
+    (.on ^js data "error" (fn [cause]
+                            (js/console.error cause)
+                            (.end response)))))
+
+(defn- handle-response
+  [{:keys [:response/body
+           :response/headers
+           :response/status
+           response]
+    :as exchange}]
+  (let [status  (or status 200)
+        headers (clj->js headers)
+        body    (or body "")]
+    (.writeHead ^js response status headers)
+    (write-body! body response)))
+
+(defn- parse-headers
+  [req]
+  (let [orig (unchecked-get req "headers")]
+    (persistent!
+     (reduce #(assoc! %1 (str/lower %2) (unchecked-get orig %2))
+             (transient {})
+             (js/Object.keys orig)))))
+
+(defn- wrap-body-params
+  [handler]
+  (let [opts #js {:limit "2mb" :encoding "utf8"}]
+    (fn [{:keys [:request/method :request/headers request] :as exchange}]
+      (let [ctype (get headers "content-type")]
+        (if (= method "post")
+          (-> (raw-body (inflate request) opts)
+              (p/then (fn [data]
+                        (cond-> data
+                          (= ctype "application/transit+json")
+                          (t/decode-str))))
+              (p/then (fn [data]
+                        (handler (assoc exchange :request/body-params data)))))
+          (handler exchange))))))
+
+(defn- wrap-params
+  [handler]
+  (fn [{:keys [:request/body-params :request/query-params] :as exchange}]
+    (handler (assoc exchange :request/params (merge query-params body-params)))))
+
+(defn- wrap-response-format
+  [handler]
+  (fn [exchange]
+    (p/then
+     (handler exchange)
+     (fn [{:keys [:response/body :response/status] :as exchange}]
+       (cond
+         (map? body)
+         (let [data (t/encode-str body {:type :json-verbose})]
+           (-> exchange
+               (assoc :response/body data)
+               (assoc :response/status 200)
+               (update :response/headers assoc "content-type" "application/transit+json")
+               (update :response/headers assoc "content-length" (count data))))
+
+         (and (nil? body)
+              (= 200 status))
+         (-> exchange
+             (assoc :response/body "")
+             (assoc :response/status 204)
+             (assoc :response/headers {"content-length" 0}))
+
+         :else
+         exchange)))))
+
+(defn- wrap-query-params
+  [handler]
+  (fn [{:keys [:request/uri] :as exchange}]
+    (handler (assoc exchange :request/query-params (u/query-string->map (:query uri))))))
+
+(defn- wrap-error
+  [handler on-error]
+  (fn [exchange]
+    (-> (p/do (handler exchange))
+        (p/catch (fn [cause] (on-error cause exchange))))))
+
+(defn- wrap-auth
+  [handler cookie-name]
+  (fn [{:keys [:request/cookies] :as exchange}]
+    (let [token (.get ^js cookies cookie-name)]
+      (handler (cond-> exchange token (assoc :request/auth-token token))))))
+
+(defn- create-adapter
+  [handler]
+  (fn [req res]
+    (let [cookies  (Cookies. req res)
+          headers  (parse-headers req)
+          uri      (u/uri (unchecked-get req "url"))
+          exchange {:request/method (str/lower (unchecked-get req "method"))
+                    :request/path (:path uri)
+                    :request/uri uri
+                    :request/headers headers
+                    :request/cookies cookies
+                    :request req
+                    :response res}]
+      (-> (p/do (handler exchange))
+          (p/then handle-response)))))
+
+(defn- create-server
+  [handler]
+  (.createServer ^js http (create-adapter handler)))
+
 (def instance (atom nil))
-
-(defn- on-error
-  [error exchange]
-  (let [{:keys [type message code] :as data} (ex-data error)]
-    (cond
-      (= :validation type)
-      (-> exchange
-          (assoc :response/status 400)
-          (assoc :response/body (t/encode data))
-          (assoc :response/headers {"content-type" "application/transit+json"}))
-
-      (and (= :internal type)
-           (= :browser-not-ready code))
-      (-> exchange
-          (assoc :response/status 503)
-          (assoc :response/body (t/encode data))
-          (assoc :response/headers {"content-type" "application/transit+json"}))
-
-      :else
-      (do
-        (l/error :msg "Unexpected error" :cause error)
-        ;; (js/console.error error)
-        (-> exchange
-            (assoc :response/status 500)
-            (assoc :response/body (t/encode data))
-            (assoc :response/headers {"content-type" "application/transit+json"}))))))
-
-(defmulti command-spec :cmd)
-
-(s/def ::id ::us/string)
-(s/def ::uri ::us/string)
-(s/def ::wait ::us/boolean)
-(s/def ::cmd ::us/keyword)
-
-(defmethod command-spec :export-shapes [_] ::export/params)
-(defmethod command-spec :export-frames [_] ::export-frames/params)
-(defmethod command-spec :get-resource [_] (s/keys :req-un [::id]))
-
-(s/def ::params
-  (s/and (s/keys :req-un [::cmd]
-                 :opt-un [::wait ::uri])
-         (s/multi-spec command-spec :cmd)))
-
-(defn- handler
-  [{:keys [:request/params] :as exchange}]
-  (let [{:keys [cmd] :as params} (us/conform ::params params)]
-    (case cmd
-      :get-resource  (rsc/retrieve-handler exchange)
-      :export-shapes (export/handler exchange params)
-      :export-frames (export-frames/handler exchange params)
-      (ex/raise :type :internal
-                :code :method-not-implemented
-                :hint (dm/fmt "method % not implemented" cmd)))))
 
 (defn init
   []
-  (let [server  (impl/server handler on-error)
+  (let [handler (-> handlers/handler
+                    (wrap-auth "auth-token")
+                    (wrap-response-format)
+                    (wrap-params)
+                    (wrap-query-params)
+                    (wrap-body-params)
+                    (wrap-error handlers/on-error))
+        server  (create-server handler)
         port    (cf/get :http-server-port 6061)]
     (.listen server port)
     (l/info :msg "welcome to penpot"

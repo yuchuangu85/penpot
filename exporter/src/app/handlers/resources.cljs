@@ -4,7 +4,7 @@
 ;;
 ;; Copyright (c) UXBOX Labs SL
 
-(ns app.http.resources
+(ns app.handlers.resources
   "Temporal resouces management."
   (:require
    ["archiver" :as arc]
@@ -30,14 +30,6 @@
     "jpeg" "image/jpeg"
     "png"  "image/png"
     "pdf"  "application/pdf"))
-
-(defn fs-stat
-  [path]
-  (-> (.stat fs/promises path)
-      (p/then (fn [data]
-                {:created-at (inst-ms (.-ctime ^js data))
-                 :size (.-size data)}))
-      (p/catch (constantly nil))))
 
 (defn create
   "Generates ephimeral resource object."
@@ -109,15 +101,15 @@
      :headers {"content-type" mtype
                "content-length" (:size stat)}}))
 
-(defn retrieve-handler
+(defn handler
   [{:keys [:request/params response] :as exchange}]
   (when-not (contains? params :id)
     (ex/raise :type :validation
               :code :missing-id))
-  (p/then
-   (lookup (get params :id))
-   (fn [{:keys [stream headers] :as resource}]
-     (-> exchange
-         (assoc :response/status 200)
-         (assoc :response/body stream)
-         (assoc :response/headers headers)))))
+
+  (-> (lookup (get params :id))
+      (p/then (fn [{:keys [stream headers] :as resource}]
+                (-> exchange
+                    (assoc :response/status 200)
+                    (assoc :response/body stream)
+                    (assoc :response/headers headers))))))

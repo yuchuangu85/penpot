@@ -4,12 +4,12 @@
 ;;
 ;; Copyright (c) UXBOX Labs SL
 
-(ns app.http.export
+(ns app.handlers.export-shapes
   (:require
    [app.common.exceptions :as exc :include-macros true]
    [app.common.spec :as us]
    [app.redis :as redis]
-   [app.http.resources :as rsc]
+   [app.handlers.resources :as rsc]
    [app.renderer.bitmap :as rb]
    [app.renderer.pdf :as rp]
    [app.renderer.svg :as rs]
