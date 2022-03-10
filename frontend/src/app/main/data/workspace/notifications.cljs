@@ -262,12 +262,14 @@
   (ptk/reify ::handle-export-update
     ptk/WatchEvent
     (watch [_ state _]
-      (when (not (get-in state [:workspace-global :export-in-progress]))
+      (when (not (get-in state [:workspace-global :export-in-progress?]))
         (->> (rp/query! :download-export-resource resource-id)
              (rx/subs
               (fn [body]
+                (println ":::::" (get-in state [:workspace-global :export-in-progress?]))
                 (dom/trigger-download (get-in state [:workspace-global :export-filename]) body))
               (fn [_error]
+                ;; TODO: hacer algo con el error
                 #_(st/emit! (dm/error (tr "errors.unexpected-error"))))))))
 
     ptk/UpdateEvent
@@ -280,7 +282,7 @@
 
         (= status "ended")
         (->
-         (assoc-in [:workspace-global :export-in-progress] false)
+         (assoc-in [:workspace-global :export-in-progress?] false)
          (assoc-in [:workspace-global :export-widget-visibililty] false)
          ;; TODO: esto debería de dejar pasar unos segundos y luego ocultarlo realmente
          (assoc-in [:workspace-global :export-detail-visibililty] false))))))

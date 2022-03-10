@@ -435,10 +435,10 @@
 
 (mf/defc header
   [{:keys [file layout project page-id] :as props}]
-  (let [team-id            (:team-id project)
-        zoom               (mf/deref refs/selected-zoom)
+  (let [team-id             (:team-id project)
+        zoom                (mf/deref refs/selected-zoom)
         export-in-progress? (mf/deref refs/export-in-progress?)
-        params             {:page-id page-id :file-id (:id file) :section "interactions"}
+        params              {:page-id page-id :file-id (:id file) :section "interactions"}
 
         go-back
         (mf/use-callback

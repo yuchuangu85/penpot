@@ -63,6 +63,7 @@
 (mf/defc header-options
   [{:keys [section zoom page file index permissions]}]
   (let [fullscreen? (mf/deref refs/viewer-fullscreen?)
+        export-in-progress? (mf/deref refs/export-in-progress?)
 
         toggle-fullscreen
         (mf/use-callback
@@ -90,7 +91,8 @@
 
        [:div.view-options])
      
-     [:& export-progress-widget]
+     (when export-in-progress?
+       [:& export-progress-widget])
      [:& zoom-widget
       {:zoom zoom
        :on-increase (st/emitf dv/increase-zoom)
