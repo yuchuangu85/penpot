@@ -19,7 +19,6 @@
    [cljs.spec.alpha :as s]
    [clojure.walk :as walk]
    [cuerdas.core :as str]
-   [lambdaisland.uri :as u]
    [promesa.core :as p]))
 
 (l/set-level! :trace)
@@ -113,7 +112,7 @@
 
 
 (defn- render-object
-  [{:keys [page-id file-id object-id token scale suffix type]}]
+  [{:keys [page-id file-id object-id token scale suffix type uri]}]
   (letfn [(convert-to-ppm [pngpath]
             (l/trace :fn :convert-to-ppm)
             (let [basepath (path/dirname pngpath)
@@ -324,7 +323,7 @@
           ]
 
     (p/let [path (str "/render-object/" file-id "/" page-id "/" object-id "?render-texts=true")
-            uri  (-> (u/uri (cf/get :public-uri))
+            uri  (-> (or uri (cf/get :public-uri))
                      (assoc :path "/")
                      (assoc :fragment path))]
 
@@ -357,10 +356,11 @@
 (s/def ::scale ::us/number)
 (s/def ::token ::us/string)
 (s/def ::filename ::us/string)
+(s/def ::uri ::us/uri)
 
 (s/def ::render-params
   (s/keys :req-un [::name ::suffix ::type ::object-id ::page-id ::file-id ::scale ::token]
-          :opt-un [::filename]))
+          :opt-un [::filename ::uri]))
 
 (defn render
   [params]

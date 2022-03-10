@@ -122,8 +122,8 @@
 (defn init
   []
   (l/info :msg "initializing browser pool")
-  (let [opts #js {:max (cf/get :browser-pool-max 5)
-                  :min (cf/get :browser-pool-min 0)
+  (let [opts #js {:max (cf/get :exporter-browser-pool-max 5)
+                  :min (cf/get :exporter-browser-pool-min 0)
                   :testOnBorrow true
                   :evictionRunIntervalMillis 5000
                   :numTestsPerEvictionRun 5

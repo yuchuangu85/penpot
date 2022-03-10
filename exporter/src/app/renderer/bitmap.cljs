@@ -16,13 +16,12 @@
    [app.config :as cf]
    [cljs.spec.alpha :as s]
    [cuerdas.core :as str]
-   [lambdaisland.uri :as u]
    [promesa.core :as p]))
 
 (defn screenshot-object
-  [{:keys [file-id page-id object-id token scale type]}]
+  [{:keys [file-id page-id object-id token scale type uri]}]
   (p/let [path (str "/render-object/" file-id "/" page-id "/" object-id)
-          uri  (-> (u/uri (cf/get :public-uri))
+          uri  (-> (or uri (cf/get :public-uri))
                    (assoc :path "/")
                    (assoc :fragment path))]
     (bw/exec!
@@ -56,10 +55,11 @@
 (s/def ::token ::us/string)
 (s/def ::filename ::us/string)
 (s/def ::origin ::us/string)
+(s/def ::uri ::us/uri)
 
-(s/def ::render-params
+(s/def ::params
   (s/keys :req-un [::name ::suffix ::type ::object-id ::page-id ::scale ::token ::file-id]
-          :opt-un [::filename ::origin]))
+          :opt-un [::filename ::origin ::uri]))
 
 (defn render
   [params]

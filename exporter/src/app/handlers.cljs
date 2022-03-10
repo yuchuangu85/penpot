@@ -10,6 +10,7 @@
    [app.common.exceptions :as ex]
    [app.common.logging :as l]
    [app.common.spec :as us]
+   [app.common.uri :as u]
    [app.config :as cf]
    [app.handlers.export-frames :as export-frames]
    [app.handlers.export-shapes :as export-shapes]
@@ -56,7 +57,7 @@
 (defmulti command-spec :cmd)
 
 (s/def ::id ::us/string)
-(s/def ::uri ::us/string)
+(s/def ::uri ::us/uri)
 (s/def ::wait ::us/boolean)
 (s/def ::cmd ::us/keyword)
 
@@ -69,9 +70,20 @@
                  :opt-un [::wait ::uri])
          (s/multi-spec command-spec :cmd)))
 
+(defn validate-uri!
+  [uri]
+  (let [white-list (cf/get :exporter-domain-whitelist #{})
+        default    (cf/get :public-uri)]
+    (when-not (or (contains? white-list (u/get-domain uri))
+                  (= (u/get-domain default) (u/get-domain uri)))
+      (ex/raise :type :validation
+                :code :domain-not-allowed
+                :hint "looks like the uri provided is not part of the white list"))))
+
 (defn handler
   [{:keys [:request/params] :as exchange}]
-  (let [{:keys [cmd] :as params} (us/conform ::params params)]
+  (let [{:keys [cmd uri] :as params} (us/conform ::params params)]
+    (some-> uri validate-uri!)
     (case cmd
       :get-resource  (resources/handler exchange)
       :export-shapes (export-shapes/handler exchange params)

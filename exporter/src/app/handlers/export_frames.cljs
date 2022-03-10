@@ -50,7 +50,6 @@
         resource    (rsc/create :pdf)
 
         on-progress (fn [progress]
-                      (prn "PROGRESS" progress)
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
                                   :status "running"
@@ -58,7 +57,6 @@
                         (redis/pub! topic data)))
 
         on-complete (fn [resource]
-                      (prn "COMPLETE")
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
                                   :size (:size resource)
@@ -115,10 +113,11 @@
                        (on-complete result)))))))
 
 (defn- export-frame
-  [tmpdir {:keys [file-id page-id frame-id token] :as params}]
+  [tmpdir {:keys [file-id page-id frame-id token uri] :as params}]
   (let [file-name (dm/fmt "%.pdf" frame-id)
         save-path (path/join tmpdir file-name)]
     (-> (rp/render {:name (dm/str frame-id)
+                    :uri  uri
                     :suffix ""
                     :token token
                     :file-id file-id
@@ -134,10 +133,6 @@
   [tmpdir file-id paths]
   (let [output-path (path/join tmpdir (str file-id ".pdf"))
         paths-str   (str/join " " paths)]
-    (prn "join-pdf" 1 tmpdir)
-    (prn "join-pdf" 2 output-path)
-    (prn "join-pdf" 3 paths)
-    (prn "join-pdf" 4 paths-str)
     (-> (sh/run-cmd! (str "pdfunite " paths-str " " output-path))
         (p/then (constantly output-path)))))
 

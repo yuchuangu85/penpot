@@ -13,13 +13,12 @@
    [app.common.spec :as us]
    [app.config :as cf]
    [cljs.spec.alpha :as s]
-   [lambdaisland.uri :as u]
    [promesa.core :as p]))
 
 (defn pdf-from-object
-  [{:keys [file-id page-id object-id token scale type save-path]}]
+  [{:keys [file-id page-id object-id token scale type save-path uri] :as params}]
   (p/let [path (str "/render-object/" file-id "/" page-id "/" object-id)
-          uri  (-> (u/uri (cf/get :public-uri))
+          uri  (-> (or uri (cf/get :public-uri))
                    (assoc :path "/")
                    (assoc :fragment path))]
     (bw/exec!
@@ -51,10 +50,11 @@
 (s/def ::token ::us/string)
 (s/def ::filename ::us/string)
 (s/def ::save-path ::us/string)
+(s/def ::uri ::us/uri)
 
 (s/def ::render-params
   (s/keys :req-un [::name ::suffix ::object-id ::page-id ::scale ::token ::file-id]
-          :opt-un [::filename ::save-path]))
+          :opt-un [::filename ::save-path ::uri]))
 
 (defn render
   [params]

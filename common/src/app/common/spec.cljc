@@ -17,6 +17,7 @@
    ;; modules splitting.
    [app.common.exceptions :as ex]
    [app.common.uuid :as uuid]
+   [app.common.uri :as u]
    [cuerdas.core :as str]
    [expound.alpha :as expound]))
 
@@ -95,6 +96,7 @@
 
     :else
     ::s/invalid))
+
 
 ;; --- Default Specs
 
@@ -187,6 +189,15 @@
 
    (fn [v]
      (str/join " " v))))
+
+(s/def ::uri
+  (s/conformer
+   (fn [s]
+     (cond
+       (u/uri? s) s
+       (string? s) (u/uri s)
+       :else ::s/invalid))
+   str))
 
 ;; --- SPEC: set-of-str
 
