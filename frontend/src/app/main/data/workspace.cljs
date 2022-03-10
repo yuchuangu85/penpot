@@ -346,9 +346,10 @@
   (ptk/reify ::toggle-export-detail-visibililty
     ptk/UpdateEvent
     (update [_ state]
-      (let [visibility (get-in state [:workspace-global :export-detail-visibililty] false)]
+      (let [visibility (get-in state [:export :export-detail-visibililty] false)
+            _ (println "TODO ---------->" visibility)]
         (-> state
-            (assoc-in [:workspace-global :export-detail-visibililty] (not visibility)))))))
+            (assoc-in [:export :export-detail-visibililty] (not visibility)))))))
 
 ;; --- Nudge
 

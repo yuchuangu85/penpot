@@ -61,6 +61,10 @@
   []
   (let [export-progress (mf/deref refs/export-progress)
         export-total (mf/deref refs/export-total)
+
+        _ (println "export-progress" export-progress)
+        _ (println "export-total" export-total)
+
         export (/ export-progress export-total)
         circumference (* 2 Math/PI 12)
         pct (- circumference (* circumference export))]
@@ -238,7 +242,7 @@
                (->> (rp/query! :export-frames (into [] xform frames))
                     (rx/subs
                      (fn [body]
-                       (dom/trigger-download filename body))
+                       #_(dom/trigger-download filename body))
                      (fn [_error]
                        (st/emit! (dm/error (tr "errors.unexpected-error"))))
                      (st/emitf dm/hide)))))))

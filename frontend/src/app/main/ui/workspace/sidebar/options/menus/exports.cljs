@@ -32,7 +32,7 @@
     ptk/UpdateEvent
     (update [_ state]
       (-> state
-          (assoc-in [:workspace-global :export-in-progress?] status)))))
+          (assoc-in [:export :export-in-progress?] status)))))
 
 ;; TODO: move somewhere?
 (defn store-export-task-id
@@ -40,14 +40,17 @@
   (ptk/reify ::store-export-task-id
     ptk/UpdateEvent
     (update [_ state]
-      (-> state
-          (assoc-in [:workspace-global :export-in-progress?] true)
-          (assoc-in [:workspace-global :export-widget-visibililty] true)
-          (assoc-in [:workspace-global :export-detail-visibililty] true)
-          (assoc-in [:workspace-global :export-total] total)
-          (assoc-in [:workspace-global :export-progress] 0)
-          (assoc-in [:workspace-global :export-task-id] id)
-          (assoc-in [:workspace-global :export-filename] filename)))))
+      (let [_ (println "-------------->" (:export state))]
+        ;; cambiar por un update
+        ;; evitar assoc-in y update-in
+        (-> state
+            (assoc-in [:export :export-in-progress?] true)
+            (assoc-in [:export :export-widget-visibililty] true)
+            (assoc-in [:export :export-detail-visibililty] true)
+            (assoc-in [:export :export-total] total)
+            (assoc-in [:export :export-progress] 0)
+            (assoc-in [:export :export-task-id] id)
+            (assoc-in [:export :export-filename] filename))))))
 
 (defn request-export
   [object-id page-id file-id name exports]
@@ -65,7 +68,7 @@
 (defn use-download-export
   [shapes filename page-id file-id exports]
   (mf/use-callback
-   (mf/deps filename shapes page-id file-id exports)
+   (mf/deps shapes filename page-id file-id exports)
    (cond
      (and (= (count shapes) 1) (= (count exports) 1))
      (fn [event]

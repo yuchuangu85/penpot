@@ -150,14 +150,15 @@
   [_ exports]
   (let [params {:uri (str base-uri)
                 :cmd :export-frames
-                :wait true
+                :wait false
                 :exports exports}]
     (->> (http/send! {:method :post
                       :uri (u/join base-uri "export")
                       :body (http/transit-data params)
                       :credentials "include"
                       :response-type :blob})
-         (rx/mapcat handle-response))))
+         (rx/mapcat handle-response)
+         (rx/ignore))))
 
 (derive :upload-file-media-object ::multipart-upload)
 (derive :update-profile-photo ::multipart-upload)

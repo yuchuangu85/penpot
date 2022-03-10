@@ -42,6 +42,9 @@
 (def share-links
   (l/derived :share-links st/state))
 
+(def export
+  (l/derived :export st/state))
+
 ;; ---- Dashboard refs
 
 (def dashboard-local
@@ -106,13 +109,13 @@
   (l/derived #(contains? % id) selected-shapes))
 
 (def export-in-progress?
-  (l/derived :export-in-progress? workspace-global))
+  (l/derived :export-in-progress? export))
 
 (def export-progress
-  (l/derived :export-progress workspace-global))
+  (l/derived :export-progress export))
 
 (def export-total
-  (l/derived :export-total workspace-global))
+  (l/derived :export-total export))
 
 (def selected-zoom
   (l/derived :zoom workspace-local))

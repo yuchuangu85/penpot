@@ -39,6 +39,9 @@
         export-in-progress? (mf/deref refs/export-in-progress?)
         on-download (we/use-download-export shapes filename page-id file-id @exports)
 
+        _ (println "shapes" (count shapes))
+        _ (println "@exports" (count @exports))
+
         add-export
         (mf/use-callback
          (mf/deps shapes)

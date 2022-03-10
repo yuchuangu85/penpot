@@ -65,6 +65,8 @@
   (let [fullscreen? (mf/deref refs/viewer-fullscreen?)
         export-in-progress? (mf/deref refs/export-in-progress?)
 
+        _ (println "VIEWR export-in-progress?" export-in-progress?)
+
         toggle-fullscreen
         (mf/use-callback
          (fn [] (st/emit! dv/toggle-fullscreen)))
@@ -90,7 +92,7 @@
        :comments [:& comments-menu]
 
        [:div.view-options])
-     
+
      (when export-in-progress?
        [:& export-progress-widget])
      [:& zoom-widget
