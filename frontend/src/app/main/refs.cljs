@@ -105,8 +105,8 @@
   [id]
   (l/derived #(contains? % id) selected-shapes))
 
-(def export-in-progress
-  (l/derived :export-in-progress workspace-global))
+(def export-in-progress?
+  (l/derived :export-in-progress? workspace-global))
 
 (def export-progress
   (l/derived :export-progress workspace-global))

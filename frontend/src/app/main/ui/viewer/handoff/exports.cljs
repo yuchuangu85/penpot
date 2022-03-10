@@ -7,6 +7,7 @@
 (ns app.main.ui.viewer.handoff.exports
   (:require
    [app.common.data :as d]
+   [app.main.refs :as refs]
    [app.main.ui.icons :as i]
    [app.main.ui.workspace.sidebar.options.menus.exports :as we]
    [app.util.dom :as dom]
@@ -35,7 +36,8 @@
                    :else
                    "TODO")
 
-        [on-download loading?] (we/use-download-export shapes filename page-id file-id @exports)
+        export-in-progress? (mf/deref refs/export-in-progress?)
+        on-download (we/use-download-export shapes filename page-id file-id @exports)
 
         add-export
         (mf/use-callback
@@ -120,10 +122,10 @@
             i/minus]])
 
         [:div.btn-icon-dark.download-button
-         {:on-click (when-not loading? on-download)
-          :class (dom/classnames :btn-disabled loading?)
-          :disabled loading?}
-         (if loading?
+         {:on-click (when-not export-in-progress? on-download)
+          :class (dom/classnames :btn-disabled export-in-progress?)
+          :disabled export-in-progress?}
+         (if export-in-progress?
            (tr "workspace.options.exporting-object")
            (tr "workspace.options.export-object" (c (count shapes))))]])]))
 

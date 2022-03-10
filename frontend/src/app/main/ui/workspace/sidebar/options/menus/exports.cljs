@@ -26,13 +26,22 @@
 (def exports-attrs [:exports])
 
 ;; TODO: move somewhere?
+(defn update-export-status
+  [status]
+  (ptk/reify ::update-export-status
+    ptk/UpdateEvent
+    (update [_ state]
+      (-> state
+          (assoc-in [:workspace-global :export-in-progress?] status)))))
+
+;; TODO: move somewhere?
 (defn store-export-task-id
   [id total filename]
   (ptk/reify ::store-export-task-id
     ptk/UpdateEvent
     (update [_ state]
       (-> state
-          (assoc-in [:workspace-global :export-in-progress] true)
+          (assoc-in [:workspace-global :export-in-progress?] true)
           (assoc-in [:workspace-global :export-widget-visibililty] true)
           (assoc-in [:workspace-global :export-detail-visibililty] true)
           (assoc-in [:workspace-global :export-total] total)
@@ -55,57 +64,51 @@
 
 (defn use-download-export
   [shapes filename page-id file-id exports]
-  (let [loading? (mf/use-state false)
-        ;; TODO: hacer el loading global
+  (mf/use-callback
+   (mf/deps filename shapes page-id file-id exports)
+   (cond
+     (and (= (count shapes) 1) (= (count exports) 1))
+     (fn [event]
+       (dom/prevent-default event)
+       (st/emit! (update-export-status true))
+       (->> (request-export (:id (first shapes)) page-id file-id filename exports)
+            (rx/subs
+             (fn [body]
+               (dom/trigger-download filename body)
+               (st/emit! (update-export-status false)))
+             (fn [_error]
+               (st/emit! (dm/error (tr "errors.unexpected-error")))
+               (st/emit! (update-export-status false))))))
 
-        on-download-callback
-        (mf/use-callback
-         (mf/deps filename shapes page-id file-id exports)
-         (cond
-           (and (= (count shapes) 1) (= (count exports) 1))
-           (fn [event]
-             (dom/prevent-default event)
-             (swap! loading? not)
-             (->> (request-export (:id (first shapes)) page-id file-id filename exports)
-                  (rx/subs
-                   (fn [body]
-                     (dom/trigger-download filename body))
-                   (fn [_error]
-                     (swap! loading? not)
-                     (st/emit! (dm/error (tr "errors.unexpected-error"))))
-                   (fn []
-                     (swap! loading? not)))))
-
-           (and (= (count shapes) 1) (> (count exports) 1))
-           (fn [event]
-             (let [shape (first shapes)
-                   exports (-> (mapv #(assoc %
-                                             :page-id page-id
-                                             :file-id file-id
-                                             :object-id (:id shape)
-                                             :name (:name shape))
-                                     exports)
-                               flatten
-                               vec)]
-               (dom/prevent-default event)
-               (->> (rp/query! :export-shapes-multiple exports)
-                    (rx/subs
-                     (fn [body]
-                       (st/emit!
-                        (modal/show
-                         {:type :export-progress-dialog}))
-                       (st/emit! (store-export-task-id (:id body) (count exports) filename)))
-                     (fn [_error]
-                       (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
-             :else
-             (fn [event]
-               (dom/prevent-default event)
-               (st/emit!
-                (modal/show
-                 {:type :export-shapes
-                  :shapes shapes})))))]
-
-    [on-download-callback @loading?]))
+     (and (= (count shapes) 1) (> (count exports) 1))
+     (fn [event]
+       (let [shape (first shapes)
+             exports (-> (mapv #(assoc %
+                                       :page-id page-id
+                                       :file-id file-id
+                                       :object-id (:id shape)
+                                       :name (:name shape))
+                               exports)
+                         flatten
+                         vec)]
+         (dom/prevent-default event)
+         (->> (rp/query! :export-shapes-multiple exports)
+              (rx/subs
+               (fn [body]
+                 (st/emit!
+                  (modal/show
+                   {:type :export-progress-dialog}))
+                 (st/emit! (store-export-task-id (:id body) (count exports) filename)))
+               (fn [_error]
+                 ;; TODO error en export múltiple
+                 (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
+     :else
+     (fn [event]
+       (dom/prevent-default event)
+       (st/emit!
+        (modal/show
+         {:type :export-shapes
+          :shapes shapes}))))))
 
 (defn use-download-export-by-id
   [ids filename page-id file-id exports]
@@ -116,7 +119,8 @@
   {::mf/register modal/components
    ::mf/register-as :export-shapes}
   [{:keys [shapes]}]
-  (let [page-id (:current-page-id @st/state)
+  (let [export-in-progress? (mf/deref refs/export-in-progress?)
+        page-id (:current-page-id @st/state)
         page (wsh/lookup-page @st/state)
         file-id (:current-file-id @st/state)
         selected (wsh/lookup-selected @st/state)
@@ -240,11 +244,15 @@
                :value (tr "labels.cancel")
                :on-click cancel-fn}]
 
-             [:input.accept-button
-              {:class "primary"
+             [:input.accept-button.primary
+              {:class (dom/classnames
+                       :btn-disabled export-in-progress?)
+               :disabled export-in-progress?
                :type "button"
-               :value (tr "labels.export")
-               :on-click accept-fn}]]]]
+               :value (if export-in-progress?
+                        (tr "workspace.options.exporting-object")
+                        (tr "labels.export"))
+               :on-click (when-not export-in-progress? accept-fn)}]]]]
 
           [:div.no-selection
            [:img {:src "images/export-no-shapes.png" :border "0"}]
@@ -284,7 +292,8 @@
                    :else
                    (:name page))
 
-        [on-download loading?] (use-download-export-by-id ids filename page-id file-id exports)
+        export-in-progress? (mf/deref refs/export-in-progress?)
+        on-download (use-download-export-by-id ids filename page-id file-id exports)
 
         add-export
         (mf/use-callback
@@ -393,11 +402,10 @@
             i/minus]])
 
         [:div.btn-icon-dark.download-button
-         {:on-click (when-not loading? on-download)
+         {:on-click (when-not export-in-progress? on-download)
           :class (dom/classnames
-                  :btn-disabled loading?)
-          :disabled loading?}
-         (if loading?
+                  :btn-disabled export-in-progress?)
+          :disabled export-in-progress?}
+         (if export-in-progress?
            (tr "workspace.options.exporting-object")
            (tr "workspace.options.export-object" (c (count ids))))]])]))
-

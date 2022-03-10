@@ -437,7 +437,7 @@
   [{:keys [file layout project page-id] :as props}]
   (let [team-id            (:team-id project)
         zoom               (mf/deref refs/selected-zoom)
-        export-in-progress (mf/deref refs/export-in-progress)
+        export-in-progress? (mf/deref refs/export-in-progress?)
         params             {:page-id page-id :file-id (:id file) :section "interactions"}
 
         go-back
@@ -468,7 +468,7 @@
      [:div.right-area
       [:div.options-section
        [:& persistence-state-widget]
-       (when export-in-progress
+       (when export-in-progress?
          [:& export-progress-widget])
        [:button.document-history
         {:alt (tr "workspace.sidebar.history" (sc/get-tooltip :toggle-history))
