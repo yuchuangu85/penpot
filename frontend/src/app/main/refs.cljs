@@ -117,6 +117,9 @@
 (def export-total
   (l/derived :export-total export))
 
+(def export-detail-visibililty
+  (l/derived :export-detail-visibililty export))
+
 (def selected-zoom
   (l/derived :zoom workspace-local))
 

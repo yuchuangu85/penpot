@@ -13,13 +13,16 @@
    [app.common.transit :as t]
    [app.common.uri :as u]
    [app.config :as cf]
+   [app.main.data.workspace.exports :as dwe]
    [app.main.data.workspace.changes :as dch]
    [app.main.data.workspace.libraries :as dwl]
    [app.main.data.workspace.persistence :as dwp]
    [app.main.repo :as rp]
+   [app.main.store :as st]
    [app.main.streams :as ms]
    [app.util.dom :as dom]
    [app.util.time :as dt]
+   [app.util.timers :as ts]
    [app.util.websockets :as ws]
    [beicon.core :as rx]
    [cljs.spec.alpha :as s]
@@ -262,28 +265,33 @@
   (ptk/reify ::handle-export-update
     ptk/WatchEvent
     (watch [_ state _]
-      (println "--------------->" (get-in state [:export :export-in-progress?]) msg)
-      (when (not (get-in state [:export :export-in-progress?]))
-        (->> (rp/query! :download-export-resource resource-id)
-             (rx/subs
-              (fn [body]
-                (println ":::::" (get-in state [:export :export-in-progress?]))
-                (dom/trigger-download (get-in state [:export :export-filename]) body))
-              (fn [_error]
+      (let [export-in-progress? (get-in state [:export :export-in-progress?])
+            resource-id (get-in state [:export :export-task-id])]
+        (println "handle-export-update process message" resource-id msg)
+        (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
+          (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
+          (->> (rp/query! :download-export-resource resource-id)
+               (rx/subs
+                (fn [body]
+                  (dom/trigger-download (get-in state [:export :export-filename]) body))
+                (fn [_error]
                 ;; TODO: hacer algo con el error
-                #_(st/emit! (dm/error (tr "errors.unexpected-error"))))))))
+                  #_(st/emit! (dm/error (tr "errors.unexpected-error")))))))))
 
     ptk/UpdateEvent
+    ;; TODO revisar esto para no usar  assoc-in?
     (update [_ state]
-      (cond-> state
-        (= status "running")
-        (->
-         (assoc-in [:export :export-total] (get-in msg [:progress :total]))
-         (assoc-in [:export :export-progress] (get-in msg [:progress :done])))
+      (let [resource-id (get-in state [:export :export-task-id])]
+        (cond-> state
+          (and (= status "running") (= (:resource-id msg) resource-id))
+          (->
+           (assoc-in [:export :export-total] (get-in msg [:progress :total]))
+           (assoc-in [:export :export-progress] (get-in msg [:progress :done])))
 
-        (= status "ended")
-        (->
-         (assoc-in [:export :export-in-progress?] false)
-         (assoc-in [:export :export-widget-visibililty] false)
-         ;; TODO: esto debería de dejar pasar unos segundos y luego ocultarlo realmente
-         (assoc-in [:export :export-detail-visibililty] false))))))
+          (and (= status "ended") (= (:resource-id msg) resource-id))
+          (->
+           (assoc-in [:export :export-in-progress?] false)
+           (assoc-in [:export :export-widget-visibililty] false))
+
+          ;;TODO: status "error"
+          )))))

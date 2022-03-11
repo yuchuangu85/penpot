@@ -29,6 +29,7 @@
    [app.main.data.workspace.changes :as dch]
    [app.main.data.workspace.common :as dwc]
    [app.main.data.workspace.drawing :as dwd]
+   [app.main.data.workspace.exports :as dwe]
    [app.main.data.workspace.fix-bool-contents :as fbc]
    [app.main.data.workspace.groups :as dwg]
    [app.main.data.workspace.guides :as dwgu]
@@ -340,16 +341,8 @@
 
 ;; --- Export progress
 
-(defn toggle-export-detail-visibililty
-  ;; [&]
-  []
-  (ptk/reify ::toggle-export-detail-visibililty
-    ptk/UpdateEvent
-    (update [_ state]
-      (let [visibility (get-in state [:export :export-detail-visibililty] false)
-            _ (println "TODO ---------->" visibility)]
-        (-> state
-            (assoc-in [:export :export-detail-visibililty] (not visibility)))))))
+(dm/export dwe/toggle-export-detail-visibililty)
+(dm/export dwe/set-export-detail-visibililty)
 
 ;; --- Nudge
 

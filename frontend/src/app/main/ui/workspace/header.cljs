@@ -13,6 +13,7 @@
    [app.main.data.messages :as dm]
    [app.main.data.modal :as modal]
    [app.main.data.workspace :as dw]
+   [app.main.data.workspace.exports :as dwe]
    [app.main.data.workspace.shortcuts :as sc]
    [app.main.refs :as refs]
    [app.main.repo :as rp]
@@ -36,46 +37,58 @@
 
 ;; --- Export progress Widget
 
-(mf/defc export-progress-dialog
-  {::mf/register modal/components
-   ::mf/register-as :export-progress-dialog}
-  [{:keys [progress]}]
-  (let [close #(modal/hide!)
-        export-progress (mf/deref refs/export-progress)
-        export-total (mf/deref refs/export-total)
-        export-percentaje (/ (* export-progress 100) export-total)]
-    [:div.export-progress-modal-overlay
-     [:div.export-progress-modal-container
-      [:div.export-progress-modal-header
-       [:p.export-progress-modal-title (tr "workspace.options.exporting-object")]
-       [:p.progress (str export-progress " / " export-total)]
-       [:button.modal-close-button {:on-click close} i/close]]
-
-      [:svg {:height 8 :width 265}
-       [:g
-        [:line {:x1 0 :y1 0 :x2 "100%" :y2 0 :stroke "#E3E3E3" :stroke-width 30}]
-        [:line {:x1 0 :y1 0 :x2 (str export-percentaje "%") :y2 0 :stroke "#31EFB8" :stroke-width 30}]]]]]))
-
 (mf/defc export-progress-widget
   {::mf/wrap [mf/memo]}
   []
-  (let [export-progress (mf/deref refs/export-progress)
+  (let [export-in-progress? (mf/deref refs/export-in-progress?)
+        export-detail-visibililty (mf/deref refs/export-detail-visibililty)
+        export-progress (mf/deref refs/export-progress)
         export-total (mf/deref refs/export-total)
-
-        _ (println "export-progress" export-progress)
-        _ (println "export-total" export-total)
-
         export (/ export-progress export-total)
         circumference (* 2 Math/PI 12)
-        pct (- circumference (* circumference export))]
-    [:div.export-progress-widget {:on-click (->
-                                             (st/emit!
-                                              (modal/show
-                                               {:type :export-progress-dialog}))
-                                             (st/emitf (dw/toggle-export-detail-visibililty)))}
-     [:svg {:width "32" :height "32"}
-      [:circle {:r "12" :cx "16" :cy "16" :fill "transparent" :stroke "#64666A" :stroke-width "4"}]
-      [:circle {:r "12" :cx "16" :cy "16" :fill "transparent" :stroke "#31EFB8" :stroke-width "4" :stroke-dasharray (str circumference " " circumference) :stroke-dashoffset pct :transform "rotate(-90 16,16)"}]]]))
+        pct (- circumference (* circumference export))
+        export-width (/ (* export-progress 265) export-total)]
+
+    [:*
+     (when export-in-progress?
+       [:div.export-progress-widget {:on-click (-> (st/emitf (dwe/toggle-export-detail-visibililty)))}
+        [:svg {:width "32" :height "32"}
+         [:circle {:r "12"
+                   :cx "16"
+                   :cy "16"
+                   :fill "transparent"
+                   :stroke "#64666A"
+                   :stroke-width "4"}]
+         [:circle {:r "12"
+                   :cx "16"
+                   :cy "16"
+                   :fill "transparent"
+                   :stroke "#31EFB8"
+                   :stroke-width "4"
+                   :stroke-dasharray (str circumference " " circumference)
+                   :stroke-dashoffset pct
+                   :transform "rotate(-90 16,16)"
+                   :style {:transition "stroke-dashoffset 1s ease-in-out"}}]]])
+     (when export-detail-visibililty
+       [:div.export-progress-modal-overlay
+        [:div.export-progress-modal-container
+         [:div.export-progress-modal-header
+          [:p.export-progress-modal-title (tr "workspace.options.exporting-object")]
+          [:p.progress (str export-progress " / " export-total)]
+          [:button.modal-close-button {:on-click (-> (st/emitf (dwe/toggle-export-detail-visibililty)))} i/close]]
+
+         [:svg {:height 8 :width 265}
+          [:g
+           [:path {:d "M0 0 L265 0"
+                   :stroke "#E3E3E3"
+                   :stroke-width 30}]
+           [:path {:d (str "M0 0 L265 0")
+                   :stroke "#31EFB8"
+                   :stroke-width 30
+                   :fill "transparent"
+                   :stroke-dasharray 265
+                   :stroke-dashoffset (- 265 export-width)
+                   :style {:transition "stroke-dashoffset 1s ease-in-out"}}]]]]])]))
 
 ;; --- Persistence state Widget
 
@@ -441,7 +454,6 @@
   [{:keys [file layout project page-id] :as props}]
   (let [team-id             (:team-id project)
         zoom                (mf/deref refs/selected-zoom)
-        export-in-progress? (mf/deref refs/export-in-progress?)
         params              {:page-id page-id :file-id (:id file) :section "interactions"}
 
         go-back
@@ -472,8 +484,7 @@
      [:div.right-area
       [:div.options-section
        [:& persistence-state-widget]
-       (when export-in-progress?
-         [:& export-progress-widget])
+       [:& export-progress-widget]
        [:button.document-history
         {:alt (tr "workspace.sidebar.history" (sc/get-tooltip :toggle-history))
          :class (when (contains? layout :document-history) "selected")
