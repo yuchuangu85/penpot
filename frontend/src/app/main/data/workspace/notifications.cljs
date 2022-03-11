@@ -270,6 +270,7 @@
       (let [export-in-progress? (get-in state [:export :export-in-progress?])
             resource-id (get-in state [:export :export-task-id])]
         (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
+          ;; dismis the detail progress after 5s
           (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
           (->> (rp/query! :download-export-resource resource-id)
                (rx/subs
@@ -279,19 +280,20 @@
                   (st/emit! (dm/error (tr "errors.unexpected-error")))))))))
 
     ptk/UpdateEvent
-    ;; TODO revisar esto para no usar  assoc-in?
     (update [_ state]
       (let [resource-id (get-in state [:export :export-task-id])]
         (cond-> state
           (and (= status "running") (= (:resource-id msg) resource-id))
-          (->
-           (assoc-in [:export :export-total] (get-in msg [:progress :total]))
-           (assoc-in [:export :export-progress] (get-in msg [:progress :done])))
+          (update :export (fn [export]
+                            (assoc export
+                                   :export-total (get-in msg [:progress :total])
+                                   :export-progress (get-in msg [:progress :done]))))
 
           (and (= status "ended") (= (:resource-id msg) resource-id))
-          (->
-           (assoc-in [:export :export-in-progress?] false)
-           (assoc-in [:export :export-widget-visibililty] false))
+          (update :export (fn [export]
+                            (assoc export
+                                   :export-in-progress? false
+                                   :export-widget-visibililty false)))
 
           ;;TODO: status "error"
           )))))

@@ -17,8 +17,9 @@
 (mf/defc exports
   [{:keys [shapes name page-id file-id] :as props}]
   (let [exports  (mf/use-state [])
-
         first-object-name (-> (first shapes) :name)
+        viewer-state (mf/deref refs/viewer-data)
+        page (get-in viewer-state [:pages page-id])
         filename (cond
                    ;; one export from one shape
                    (and (= (count shapes) 1)
@@ -34,13 +35,10 @@
                    first-object-name
 
                    :else
-                   "TODO")
+                   (:name page))
 
         export-in-progress? (mf/deref refs/export-in-progress?)
         on-download (we/use-download-export shapes filename page-id file-id @exports)
-
-        _ (println "shapes" (count shapes))
-        _ (println "@exports" (count @exports))
 
         add-export
         (mf/use-callback

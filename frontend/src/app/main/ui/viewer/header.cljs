@@ -16,7 +16,7 @@
    [app.main.ui.icons :as i]
    [app.main.ui.viewer.comments :refer [comments-menu]]
    [app.main.ui.viewer.interactions :refer [flows-menu interactions-menu]]
-   ;; TODO: review import
+   ;; TODO: review import. ¿Debería de estar en workspace si es común?
    [app.main.ui.workspace.header :refer [export-progress-widget]]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer [tr]]
@@ -64,8 +64,6 @@
   [{:keys [section zoom page file index permissions]}]
   (let [fullscreen? (mf/deref refs/viewer-fullscreen?)
         export-in-progress? (mf/deref refs/export-in-progress?)
-
-        _ (println "VIEWR export-in-progress?" export-in-progress?)
 
         toggle-fullscreen
         (mf/use-callback
