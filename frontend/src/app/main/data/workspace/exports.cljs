@@ -44,14 +44,15 @@
     ptk/UpdateEvent
     (update [_ state]
       (-> state
-          (assoc :export {:export-in-progress? true
+          (assoc :export {;; TODO quitar sufjo
+                          :export-in-progress? true
                           :export-health "OK"
                           :export-error? false
                           :export-widget-visibililty true
                           :export-detail-visibililty true
                           :exports exports
-                          :filename filename
                           :export-progress 0
+                          ;; TODO: rename to resource id
                           :export-task-id id
                           :export-filename filename})))))
 
@@ -61,13 +62,10 @@
     ptk/WatchEvent
     (watch [_ state _]
       (let [exports (get-in state [:export :exports])
-            filename (get-in state [:export :filename])]
+            filename (get-in state [:export :export-filename])]
         (->> (rp/query! :export-shapes-multiple exports)
              (rx/subs
               (fn [body]
                 (st/emit! (store-export-task-id (:id body) exports filename)))
               (fn [_error]
-                 ;; TODO error en export múltiple
                 (st/emit! (dm/error (tr "errors.unexpected-error"))))))))))
-
-
