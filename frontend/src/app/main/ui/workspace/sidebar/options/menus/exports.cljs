@@ -20,6 +20,7 @@
    [app.main.ui.icons :as i]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer  [tr, c]]
+   [app.util.object :as obj]
    [beicon.core :as rx]
    [potok.core :as ptk]
    [rumext.alpha :as mf]))
@@ -47,13 +48,16 @@
      (and (= (count shapes) 1) (= (count exports) 1))
      (fn [event]
        (dom/prevent-default event)
+       (obj/set! js/window "onbeforeunload" (constantly false))
        (st/emit! (dwe/update-export-status true))
        (->> (request-export (:id (first shapes)) page-id file-id filename exports)
             (rx/subs
              (fn [body]
+               (obj/set! js/window "onbeforeunload" nil)
                (dom/trigger-download filename body)
                (st/emit! (dwe/update-export-status false)))
              (fn [_error]
+               (obj/set! js/window "onbeforeunload" nil)
                (st/emit! (dm/error (tr "errors.unexpected-error")))
                (st/emit! (dwe/update-export-status false))))))
 
@@ -69,11 +73,13 @@
                          flatten
                          vec)]
          (dom/prevent-default event)
+         (obj/set! js/window "onbeforeunload" (constantly false))
          (->> (rp/query! :export-shapes-multiple exports)
               (rx/subs
                (fn [body]
                  (st/emit! (dwe/store-export-task-id (:id body) exports filename)))
                (fn [_error]
+                 (obj/set! js/window "onbeforeunload" nil)
                  ;; TODO error en export múltiple
                  (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
      :else

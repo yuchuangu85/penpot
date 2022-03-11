@@ -23,6 +23,7 @@
    [app.main.streams :as ms]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer  [tr, c]]
+   [app.util.object :as obj]
    [app.util.time :as dt]
    [app.util.timers :as ts]
    [app.util.websockets :as ws]
@@ -271,9 +272,11 @@
             export-error? (get-in state [:export :export-error?])
             resource-id (get-in state [:export :export-task-id])]
         (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
+          (obj/set! js/window "onbeforeunload" nil)
           ;; dismis the detail progress after 5s
           (when (not export-error?)
-            (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false))))
+            (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
+            (ts/schedule 5000 (st/emitf (dwe/set-export-widget-visibililty false))))
           (->> (rp/query! :download-export-resource resource-id)
                (rx/subs
                 (fn [body]
@@ -293,8 +296,7 @@
           (and (= status "ended") (= (:resource-id msg) resource-id))
           (update :export (fn [export]
                             (assoc export
-                                   :export-in-progress? false
-                                   :export-widget-visibililty false)))
+                                   :export-in-progress? false)))
 
           ;;TODO: status "error"
           )))))

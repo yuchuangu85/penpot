@@ -44,6 +44,7 @@
         export-error? (mf/deref refs/export-error?)
         export-health (mf/deref refs/export-health)
         export-detail-visibililty (mf/deref refs/export-detail-visibililty)
+        export-widget-visibililty (mf/deref refs/export-widget-visibililty)
         export-progress (mf/deref refs/export-progress)
         exports  (mf/deref refs/exports)
         export-total (count exports)
@@ -63,7 +64,7 @@
                        (= export-health "KO") (tr "workspace.options.exporting-object-slow"))]
 
     [:*
-     (when export-in-progress?
+     (when export-widget-visibililty
        [:div.export-progress-widget {:on-click (-> (st/emitf (dwe/toggle-export-detail-visibililty)))}
         [:svg {:width "32" :height "32"}
          [:circle {:r "12"

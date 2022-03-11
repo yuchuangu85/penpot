@@ -123,6 +123,9 @@
 (def export-detail-visibililty
   (l/derived :export-detail-visibililty export))
 
+(def export-widget-visibililty
+  (l/derived :export-widget-visibililty export))
+
 (def export-health
   (l/derived :export-health export))
 

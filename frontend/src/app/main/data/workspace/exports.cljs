@@ -24,11 +24,19 @@
 
 (defn set-export-detail-visibililty
   [visibility]
-  (ptk/reify ::toggle-export-detail-visibililty
+  (ptk/reify ::set-export-detail-visibililty
     ptk/UpdateEvent
     (update [_ state]
       (-> state
           (assoc-in [:export :export-detail-visibililty] visibility)))))
+
+(defn set-export-widget-visibililty
+  [visibility]
+  (ptk/reify ::set-export-widget-visibililty
+    ptk/UpdateEvent
+    (update [_ state]
+      (-> state
+          (assoc-in [:export :export-widget-visibililty] visibility)))))
 
 (defn update-export-status
   [status]
@@ -36,7 +44,7 @@
     ptk/UpdateEvent
     (update [_ state]
       (-> state
-          (update state :export #(assoc % :export-in-progress? status))))))
+          (assoc-in [:export :export-in-progress?] status)))))
 
 (defn store-export-task-id
   [id exports filename]
