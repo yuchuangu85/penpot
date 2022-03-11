@@ -255,7 +255,7 @@
                (->> (rp/query! :export-frames (into [] xform frames))
                     (rx/subs
                      (fn [body]
-                       #_(dom/trigger-download filename body))
+                       (dom/trigger-download filename body))
                      (fn [_error]
                        (st/emit! (dm/error (tr "errors.unexpected-error"))))
                      (st/emitf dm/hide)))))))

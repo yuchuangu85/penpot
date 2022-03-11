@@ -343,6 +343,8 @@
 
 (dm/export dwe/toggle-export-detail-visibililty)
 (dm/export dwe/set-export-detail-visibililty)
+(dm/export dwe/update-export-status)
+(dm/export dwe/store-export-task-id)
 
 ;; --- Nudge
 

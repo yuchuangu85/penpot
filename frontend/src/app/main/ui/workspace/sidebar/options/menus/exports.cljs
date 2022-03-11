@@ -10,6 +10,7 @@
    [app.main.data.messages :as dm]
    [app.main.data.modal :as modal]
    [app.main.data.workspace.changes :as dch]
+   [app.main.data.workspace.exports :as dwe]
    [app.main.data.workspace.persistence :as dwp]
    [app.main.data.workspace.state-helpers :as wsh]
    [app.main.refs :as refs]
@@ -24,30 +25,6 @@
    [rumext.alpha :as mf]))
 
 (def exports-attrs [:exports])
-
-;; TODO: move somewhere?
-(defn update-export-status
-  [status]
-  (ptk/reify ::update-export-status
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (update state :export #(assoc % :export-in-progress? status))))))
-
-;; TODO: move somewhere?
-(defn store-export-task-id
-  [id total filename]
-  (ptk/reify ::store-export-task-id
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (assoc :export {:export-in-progress? true
-                          :export-widget-visibililty true
-                          :export-detail-visibililty true
-                          :export-total total
-                          :export-progress 0
-                          :export-task-id id
-                          :export-filename filename})))))
 
 (defn request-export
   [object-id page-id file-id name exports]
@@ -70,15 +47,15 @@
      (and (= (count shapes) 1) (= (count exports) 1))
      (fn [event]
        (dom/prevent-default event)
-       (st/emit! (update-export-status true))
+       (st/emit! (dwe/update-export-status true))
        (->> (request-export (:id (first shapes)) page-id file-id filename exports)
             (rx/subs
              (fn [body]
                (dom/trigger-download filename body)
-               (st/emit! (update-export-status false)))
+               (st/emit! (dwe/update-export-status false)))
              (fn [_error]
                (st/emit! (dm/error (tr "errors.unexpected-error")))
-               (st/emit! (update-export-status false))))))
+               (st/emit! (dwe/update-export-status false))))))
 
      (and (= (count shapes) 1) (> (count exports) 1))
      (fn [event]
@@ -95,10 +72,7 @@
          (->> (rp/query! :export-shapes-multiple exports)
               (rx/subs
                (fn [body]
-                 #_(st/emit!
-                  (modal/show
-                   {:type :export-progress-dialog}))
-                 (st/emit! (store-export-task-id (:id body) (count exports) filename)))
+                 (st/emit! (dwe/store-export-task-id (:id body) (count exports) filename)))
                (fn [_error]
                  ;; TODO error en export múltiple
                  (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
@@ -175,7 +149,7 @@
                    (st/emit!
                     (modal/show
                      {:type :export-progress-dialog}))
-                   (st/emit! (store-export-task-id (:id body) (count enabled-exports) (:name page))))
+                   (st/emit! (dwe/store-export-task-id (:id body) (count enabled-exports) (:name page))))
                  (fn [_error]
                    (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
 
