@@ -41,13 +41,26 @@
   {::mf/wrap [mf/memo]}
   []
   (let [export-in-progress? (mf/deref refs/export-in-progress?)
+        export-error? (mf/deref refs/export-error?)
+        export-health (mf/deref refs/export-health)
         export-detail-visibililty (mf/deref refs/export-detail-visibililty)
         export-progress (mf/deref refs/export-progress)
-        export-total (mf/deref refs/export-total)
+        exports  (mf/deref refs/exports)
+        export-total (count exports)
         export (/ export-progress export-total)
         circumference (* 2 Math/PI 12)
         pct (- circumference (* circumference export))
-        export-width (/ (* export-progress 265) export-total)]
+        export-width (if export-error?
+                       280
+                       (/ (* export-progress 280) export-total))
+        color (cond
+                export-error? "#E65244"
+                (= export-health "OK") "#31EFB8"
+                (= export-health "KO") "#FC8802")
+        export-title (cond
+                       export-error? (tr "workspace.options.exporting-object-error")
+                       (= export-health "OK") (tr "workspace.options.exporting-object")
+                       (= export-health "KO") (tr "workspace.options.exporting-object-slow"))]
 
     [:*
      (when export-in-progress?
@@ -63,7 +76,7 @@
                    :cx "16"
                    :cy "16"
                    :fill "transparent"
-                   :stroke "#31EFB8"
+                   :stroke color
                    :stroke-width "4"
                    :stroke-dasharray (str circumference " " circumference)
                    :stroke-dashoffset pct
@@ -73,21 +86,24 @@
        [:div.export-progress-modal-overlay
         [:div.export-progress-modal-container
          [:div.export-progress-modal-header
-          [:p.export-progress-modal-title (tr "workspace.options.exporting-object")]
-          [:p.progress (str export-progress " / " export-total)]
+          [:p.export-progress-modal-title export-title]
+          (if export-error?
+            [:button.btn-secondary.retry {:on-click (-> (st/emitf (dwe/retry-export)))} (tr "workspace.options.retry")]
+            [:p.progress (str export-progress " / " export-total)])
+
           [:button.modal-close-button {:on-click (-> (st/emitf (dwe/toggle-export-detail-visibililty)))} i/close]]
 
-         [:svg {:height 8 :width 265}
+         [:svg.progress-bar {:height 8 :width 280}
           [:g
-           [:path {:d "M0 0 L265 0"
+           [:path {:d "M0 0 L280 0"
                    :stroke "#E3E3E3"
                    :stroke-width 30}]
-           [:path {:d (str "M0 0 L265 0")
-                   :stroke "#31EFB8"
+           [:path {:d (str "M0 0 L280 0")
+                   :stroke color
                    :stroke-width 30
                    :fill "transparent"
-                   :stroke-dasharray 265
-                   :stroke-dashoffset (- 265 export-width)
+                   :stroke-dasharray 280
+                   :stroke-dashoffset (- 280 export-width)
                    :style {:transition "stroke-dashoffset 1s ease-in-out"}}]]]]])]))
 
 ;; --- Persistence state Widget

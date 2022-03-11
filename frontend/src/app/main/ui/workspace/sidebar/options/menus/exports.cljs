@@ -72,7 +72,7 @@
          (->> (rp/query! :export-shapes-multiple exports)
               (rx/subs
                (fn [body]
-                 (st/emit! (dwe/store-export-task-id (:id body) (count exports) filename)))
+                 (st/emit! (dwe/store-export-task-id (:id body) exports filename)))
                (fn [_error]
                  ;; TODO error en export múltiple
                  (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
@@ -149,7 +149,7 @@
                    (st/emit!
                     (modal/show
                      {:type :export-progress-dialog}))
-                   (st/emit! (dwe/store-export-task-id (:id body) (count enabled-exports) (:name page))))
+                   (st/emit! (dwe/store-export-task-id (:id body) enabled-exports (:name page))))
                  (fn [_error]
                    (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
 

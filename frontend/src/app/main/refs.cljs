@@ -111,14 +111,20 @@
 (def export-in-progress?
   (l/derived :export-in-progress? export))
 
+(def export-error?
+  (l/derived :export-error? export))
+
 (def export-progress
   (l/derived :export-progress export))
 
-(def export-total
-  (l/derived :export-total export))
+(def exports
+  (l/derived :exports export))
 
 (def export-detail-visibililty
   (l/derived :export-detail-visibililty export))
+
+(def export-health
+  (l/derived :export-health export))
 
 (def selected-zoom
   (l/derived :zoom workspace-local))

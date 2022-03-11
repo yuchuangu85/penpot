@@ -268,10 +268,12 @@
     ptk/WatchEvent
     (watch [_ state _]
       (let [export-in-progress? (get-in state [:export :export-in-progress?])
+            export-error? (get-in state [:export :export-error?])
             resource-id (get-in state [:export :export-task-id])]
         (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
           ;; dismis the detail progress after 5s
-          (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
+          (when (not export-error?)
+            (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false))))
           (->> (rp/query! :download-export-resource resource-id)
                (rx/subs
                 (fn [body]
@@ -286,7 +288,6 @@
           (and (= status "running") (= (:resource-id msg) resource-id))
           (update :export (fn [export]
                             (assoc export
-                                   :export-total (get-in msg [:progress :total])
                                    :export-progress (get-in msg [:progress :done]))))
 
           (and (= status "ended") (= (:resource-id msg) resource-id))

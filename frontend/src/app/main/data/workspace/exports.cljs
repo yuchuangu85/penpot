@@ -6,10 +6,14 @@
 
 (ns app.main.data.workspace.exports
   (:require
+   [app.main.data.messages :as dm]
+   [app.main.repo :as rp]
+   [app.main.store :as st]
+   [app.util.i18n :as i18n :refer  [tr]]
+   [beicon.core :as rx]
    [potok.core :as ptk]))
 
 (defn toggle-export-detail-visibililty
-  ;; [&]
   []
   (ptk/reify ::toggle-export-detail-visibililty
     ptk/UpdateEvent
@@ -19,7 +23,6 @@
             (assoc-in [:export :export-detail-visibililty] (not visibility)))))))
 
 (defn set-export-detail-visibililty
-  ;; [&]
   [visibility]
   (ptk/reify ::toggle-export-detail-visibililty
     ptk/UpdateEvent
@@ -36,15 +39,35 @@
           (update state :export #(assoc % :export-in-progress? status))))))
 
 (defn store-export-task-id
-  [id total filename]
+  [id exports filename]
   (ptk/reify ::store-export-task-id
     ptk/UpdateEvent
     (update [_ state]
       (-> state
           (assoc :export {:export-in-progress? true
+                          :export-health "OK"
+                          :export-error? false
                           :export-widget-visibililty true
                           :export-detail-visibililty true
-                          :export-total total
+                          :exports exports
+                          :filename filename
                           :export-progress 0
                           :export-task-id id
                           :export-filename filename})))))
+
+(defn retry-export
+  []
+  (ptk/reify ::retry-export
+    ptk/WatchEvent
+    (watch [_ state _]
+      (let [exports (get-in state [:export :exports])
+            filename (get-in state [:export :filename])]
+        (->> (rp/query! :export-shapes-multiple exports)
+             (rx/subs
+              (fn [body]
+                (st/emit! (store-export-task-id (:id body) exports filename)))
+              (fn [_error]
+                 ;; TODO error en export múltiple
+                (st/emit! (dm/error (tr "errors.unexpected-error"))))))))))
+
+

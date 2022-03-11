@@ -339,12 +339,13 @@
 (dm/export layout/toggle-layout-flag)
 (dm/export layout/remove-layout-flag)
 
-;; --- Export progress
+;; --- Export 
 
 (dm/export dwe/toggle-export-detail-visibililty)
 (dm/export dwe/set-export-detail-visibililty)
 (dm/export dwe/update-export-status)
 (dm/export dwe/store-export-task-id)
+(dm/export dwe/retry-export)
 
 ;; --- Nudge
 
