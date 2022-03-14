@@ -148,6 +148,7 @@
          (mf/deps @exports)
          (fn [event]
            (dom/prevent-default event)
+           (obj/set! js/window "onbeforeunload" (constantly false))
            (->> (rp/query! :export-shapes-multiple enabled-exports)
                 (rx/subs
                  (fn [body]
