@@ -11,6 +11,7 @@
    [app.config :as cf]
    [app.main.data.events :as ev]
    [app.main.data.users :as du]
+   [app.main.data.websocket :as ws]
    [app.main.errors]
    [app.main.sentry :as sentry]
    [app.main.store :as st]
@@ -52,13 +53,22 @@
 
     ptk/WatchEvent
     (watch [_ _ stream]
+      (prn ::initialize "watch")
       (rx/merge
        (rx/of (ptk/event ::ev/initialize)
               (du/initialize-profile))
        (->> stream
             (rx/filter du/profile-fetched?)
             (rx/take 1)
-            (rx/map #(rt/init-routes)))))))
+            (rx/map #(rt/init-routes)))
+
+       (->> stream
+            (rx/filter du/profile-fetched?)
+            (rx/map deref)
+            (rx/filter du/is-authenticated?)
+            (rx/take 1)
+            (rx/map #(ws/initialize)))))))
+
 
 (def essential-only?
   (let [href (.-href ^js glob/location)]

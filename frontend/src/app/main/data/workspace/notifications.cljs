@@ -9,6 +9,7 @@
    [app.common.data :as d]
    [app.common.geom.point :as gpt]
    [app.common.spec :as us]
+   [app.common.uuid :as uuid]
    [app.common.spec.change :as spec.change]
    [app.common.transit :as t]
    [app.common.uri :as u]
@@ -26,7 +27,7 @@
    [app.util.object :as obj]
    [app.util.time :as dt]
    [app.util.timers :as ts]
-   [app.util.websockets :as ws]
+   [app.util.websocket :as ws]
    [beicon.core :as rx]
    [cljs.spec.alpha :as s]
    [clojure.set :as set]
@@ -41,48 +42,29 @@
 (declare handle-export-update)
 (declare send-keepalive)
 
-(s/def ::type keyword?)
-(s/def ::message
-  (s/keys :req-un [::type]))
-
-(defn prepare-uri
-  [params]
-  (let [base (-> (u/join cf/public-uri "ws/notifications")
-                 (assoc :query (u/map->query-string params)))]
-    (cond-> base
-      (= "https" (:scheme base))
-      (assoc :scheme "wss")
-
-      (= "http" (:scheme base))
-      (assoc :scheme "ws"))))
-
 (defn initialize
   [file-id]
   (ptk/reify ::initialize
-    ptk/UpdateEvent
-    (update [_ state]
-      (let [sid (:session-id state)
-            uri (prepare-uri {:file-id file-id :session-id sid})]
-        (assoc-in state [:ws file-id] (ws/open uri))))
-
     ptk/WatchEvent
     (watch [_ state stream]
-      (let [wsession (get-in state [:ws file-id])
-            stoper   (->> stream
-                          (rx/filter (ptk/type? ::finalize)))
-            interval (* 1000 60)]
-        (->> (rx/merge
-              ;; Each 60 seconds send a keepalive message for maintain
-              ;; this socket open.
-              (->> (rx/timer interval interval)
-                   (rx/map #(send-keepalive file-id)))
+      (let [ws-conn (:ws-conn state)
+            subs-id (uuid/next)
+            stoper  (rx/filter (ptk/type? ::finalize) stream)]
 
+        ;; Subscribe to workspace events
+        (ws/send! ws-conn {:type :subscribe-file
+                           :subs-id subs-id
+                           :file-id file-id})
+
+        ;; TODO: handle reconnections
+
+        (->> (rx/merge
               ;; Process all incoming messages.
-              (->> (ws/-stream wsession)
-                   (rx/filter ws/message?)
-                   (rx/map (comp t/decode-str :payload))
-                   (rx/filter #(s/valid? ::message %))
-                   (rx/map process-message))
+              (->> (ws/get-rcv-stream ws-conn)
+                   (rx/filter ws/message-event?)
+                   (rx/map :payload)
+                   (rx/map process-message)
+                   (rx/filter some?))
 
               (rx/of (handle-presence {:type :connect
                                        :session-id (:session-id state)
@@ -92,41 +74,39 @@
               (->> stream
                    (rx/filter ms/pointer-event?)
                    (rx/sample 50)
-                   (rx/map #(handle-pointer-send file-id (:pt %)))))
-             (rx/take-until stoper))))))
+                   (rx/map #(handle-pointer-send subs-id file-id (:pt %)))))
+
+             (rx/take-until stoper)
+             (rx/finalize (fn [_]
+                            (ws/send! ws-conn {:type :unsubscribe-file :subs-id subs-id}))))))))
+
 
 (defn- process-message
   [{:keys [type] :as msg}]
+  (prn "process-message" msg)
   (case type
-    :connect        (handle-presence msg)
+    :join-file      (handle-presence msg)
+    :leave-file     (handle-presence msg)
     :presence       (handle-presence msg)
     :disconnect     (handle-presence msg)
-    :pointer-update (handle-pointer-update msg)
-    :file-change    (handle-file-change msg)
-    :library-change (handle-library-change msg)
-    :export-update  (handle-export-update msg)
-    ::unknown))
-
-(defn- send-keepalive
-  [file-id]
-  (ptk/reify ::send-keepalive
-    ptk/EffectEvent
-    (effect [_ state _]
-      (when-let [ws (get-in state [:ws file-id])]
-        (ws/send! ws {:type :keepalive})))))
+    :pointer-position-update (handle-pointer-update msg)
+    ;; :file-change    (handle-file-change msg)
+    ;; :library-change (handle-library-change msg)
+    ;; :export-update  (handle-export-update msg)
+    nil))
 
 (defn- handle-pointer-send
-  [file-id point]
+  [subs-id file-id point]
   (ptk/reify ::handle-pointer-send
     ptk/EffectEvent
     (effect [_ state _]
-      (let [ws (get-in state [:ws file-id])
-            pid (:current-page-id state)
-            msg {:type :pointer-update
-                 :page-id pid
-                 :x (:x point)
-                 :y (:y point)}]
-        (ws/send! ws msg)))))
+      (let [ws-conn (:ws-conn state)
+            page-id (:current-page-id state)
+            message {:type :pointer-position-update
+                     :subs-id subs-id
+                     :page-id page-id
+                     :position point}]
+        (ws/send! ws-conn message)))))
 
 ;; --- Finalize Websocket
 
@@ -190,19 +170,20 @@
       ptk/UpdateEvent
       (update [_ state]
         ;; (let [profiles (:users state)]
-        (if (= :disconnect type)
+        (if (or (= :disconnect type) (= :leave-file type))
           (update state :workspace-presence dissoc session-id)
           (update state :workspace-presence update-presence))))))
 
 (defn handle-pointer-update
-  [{:keys [page-id session-id x y] :as msg}]
+  [{:keys [page-id session-id position] :as msg}]
   (ptk/reify ::handle-pointer-update
     ptk/UpdateEvent
     (update [_ state]
+      (prn ::handle-pointer-update msg)
       (update-in state [:workspace-presence session-id]
                  (fn [session]
                    (assoc session
-                          :point (gpt/point x y)
+                          :point position
                           :updated-at (dt/now)
                           :page-id page-id))))))
 

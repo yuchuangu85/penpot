@@ -13,6 +13,7 @@
    [app.main.data.fonts :as df]
    [app.main.data.media :as di]
    [app.main.data.users :as du]
+   [app.main.data.websocket :as ws]
    [app.main.repo :as rp]
    [app.util.i18n :as i18n :refer [tr]]
    [app.util.router :as rt]
@@ -84,6 +85,7 @@
     ptk/WatchEvent
     (watch [_ state stream]
       (rx/merge
+       ;; (rx/of (ws/update-state {:team-id id}))
        (ptk/watch (df/load-team-fonts id) state stream)
        (ptk/watch (fetch-projects) state stream)
        (ptk/watch (fetch-team-members) state stream)

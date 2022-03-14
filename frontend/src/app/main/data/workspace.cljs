@@ -339,7 +339,7 @@
 (dm/export layout/toggle-layout-flag)
 (dm/export layout/remove-layout-flag)
 
-;; --- Export 
+;; --- Export
 
 (dm/export dwe/toggle-export-detail-visibililty)
 (dm/export dwe/set-export-detail-visibililty)
@@ -991,7 +991,7 @@
             pages (get-in state [:workspace-data
                                  :pages-index])
             file-thumbnails (->> pages
-                     (mapcat #(extract-file-thumbnails-from-page state selected %)))]        
+                     (mapcat #(extract-file-thumbnails-from-page state selected %)))]
         (rx/concat
          (rx/from
           (for [ft file-thumbnails]
