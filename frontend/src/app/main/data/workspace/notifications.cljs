@@ -97,17 +97,15 @@
 
 (defn- process-message
   [{:keys [type] :as msg}]
-  (let [_ (println "process-message" msg)]
-    (case type
-      :connect        (handle-presence msg)
-      :presence       (handle-presence msg)
-      :disconnect     (handle-presence msg)
-      :pointer-update (handle-pointer-update msg)
-      :file-change    (handle-file-change msg)
-      :library-change (handle-library-change msg)
-      :export-update  (handle-export-update msg)
-      ::unknown))
-  )
+  (case type
+    :connect        (handle-presence msg)
+    :presence       (handle-presence msg)
+    :disconnect     (handle-presence msg)
+    :pointer-update (handle-pointer-update msg)
+    :file-change    (handle-file-change msg)
+    :library-change (handle-library-change msg)
+    :export-update  (handle-export-update msg)
+    ::unknown))
 
 (defn- send-keepalive
   [file-id]
