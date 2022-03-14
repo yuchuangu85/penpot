@@ -7,6 +7,7 @@
 (ns app.main.store
   (:require-macros [app.main.store])
   (:require
+   [app.util.object :as obj]
    [beicon.core :as rx]
    [okulary.core :as l]
    [potok.core :as ptk]))
@@ -59,4 +60,24 @@
   [& events]
   #(apply ptk/emit! state events))
 
+(defonce events-before-unload (l/atom #{}))
 
+(add-watch events-before-unload "::events-before-unload"
+           (fn [_ _ _ events]
+             (if (empty? @events-before-unload)
+               (obj/set! js/window "onbeforeunload" nil)
+               (obj/set! js/window "onbeforeunload" (constantly false)))))
+
+(defn add-event-before-unload
+  [id]
+  (ptk/reify ::add-event-before-unload
+    ptk/WatchEvent
+    (watch [_ _ _]
+      (swap! events-before-unload conj id))))
+
+(defn remove-event-before-unload
+  [id]
+  (ptk/reify ::remove-event-before-unload
+    ptk/WatchEvent
+    (watch [_ _ _]
+      (swap! events-before-unload disj id))))
