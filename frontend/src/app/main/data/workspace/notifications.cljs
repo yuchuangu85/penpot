@@ -273,7 +273,9 @@
           (st/emit! (st/remove-event-before-unload "export"))
           ;; dismis the detail progress after 5s
           (when (not export-error?)
-            (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false))))
+            (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
+            (ts/schedule 5000 (st/emitf (dwe/set-export-widget-visibililty false))))
+
           (->> (rp/query! :download-export-resource resource-id)
                (rx/subs
                 (fn [body]
