@@ -304,12 +304,27 @@
   {::mf/wrap-props false
    ::mf/wrap [mf/memo #(mf/throttle % 200)]}
   [props]
-  (let [objects (-> (obj/get props "objects")
+  (let [search (str/lower (obj/get props "search"))
+        objects (-> (obj/get props "objects")
                     (hooks/use-equal-memo))
         objects (mf/use-memo
                  (mf/deps objects)
-                 #(strip-objects objects))]
+                 #(strip-objects objects))
+
+        reparented-objects (->> objects
+                            (map #(assoc {} (key %) (assoc (val %) :parent-id uuid/zero :shapes nil)))
+                            (into {}))
+        
+        reparented-objects (update-in reparented-objects [uuid/zero] assoc :shapes (keys reparented-objects))
+
+        objects (if (= "" search)
+                  objects
+                  (into {} (filter #(or
+                                     (str/includes? (str/lower (:name (val %))) search)
+                                     (= uuid/zero (key %)))
+                                   reparented-objects)))]
     [:& layers-tree {:objects objects}]))
+
 
 ;; --- Layers Toolbox
 
@@ -320,7 +335,9 @@
         focus (mf/deref refs/workspace-focus-selected)
         objects (hooks/with-focus-objects (:objects page) focus)
         title (when (= 1 (count focus)) (get-in objects [(first focus) :name]))
-        
+        show-search-box  (mf/use-state false)
+        search-text  (mf/use-state "")
+
         on-scroll
         (fn [event]
           (let [target (dom/get-target event)
@@ -328,13 +345,21 @@
                 frames (dom/get-elements-by-class "type-frame")
                 last-hidden-frame (->> frames
                                        (filter #(< (- (:top (dom/get-bounding-rect %)) target-top) 0))
-                                       last)]            
-            (doseq [frame frames]              
+                                       last)]
+            (doseq [frame frames]
               (dom/remove-class! frame "sticky"))
-            
+
             (when last-hidden-frame
-              (dom/add-class! last-hidden-frame "sticky"))))]
-    
+              (dom/add-class! last-hidden-frame "sticky"))))
+        clear-search-text #(reset! search-text "")
+        update-search-text (fn [event]
+                             (let [value (-> event dom/get-target dom/get-value)]
+                             (reset! search-text value)))
+        toggle-search (fn[]
+                        (reset! search-text "")
+                        (reset! show-search-box (not @show-search-box))                        
+                        )]
+
     [:div#layers.tool-window
      (if (d/not-empty? focus)
        [:div.tool-window-bar
@@ -345,9 +370,25 @@
          [:span (or title (tr "workspace.focus.selection"))]
          [:div.focus-mode (tr "workspace.focus.focus-mode")]]]
 
-       [:div.tool-window-bar
-        [:span (:name page)]])
+
+       (if @show-search-box
+         [:div.tool-window-bar.search
+          [:span.search-box
+           [:span.filter i/icon-filter]
+           [:span
+            [:input {:on-change update-search-text
+                     :value @search-text}]]
+           (when (not (= "" @search-text))
+             [:span.clear {:on-click clear-search-text} i/exclude]
+             )]
+          [:span{:on-click toggle-search} i/cross ]]
+
+         [:div.tool-window-bar
+          [:span (:name page)]
+          [:span {:on-click toggle-search} i/search ]]))
 
      [:div.tool-window-content {:on-scroll on-scroll}
       [:& layers-tree-wrapper {:key (:id page)
-                               :objects objects}]]]))
+                               :objects objects
+                               :search @search-text}]]
+     ]))

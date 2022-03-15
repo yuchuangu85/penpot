@@ -295,3 +295,43 @@ span.element-name {
     padding: 1px;
   }
 }
+
+#layers {
+  .tool-window-bar {
+    display: flex;
+    justify-content: space-between;
+    height: 32px;
+    margin-top: 8px;
+
+    &.search{
+      .search-box {
+        border: 1px solid #31efb8;
+        height: 32px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        input {
+          border: 0;
+          width: 100%;
+          background-color: #303236;
+          color: white;
+          font-size: 12px;
+          height: 16px;
+        }
+        span{
+          height: 16px;
+        }
+        .filter, .clear{
+          width: 35px;        
+        }
+      }
+    }
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    margin: 0 2px 0 5px;
+  }
+
+}
