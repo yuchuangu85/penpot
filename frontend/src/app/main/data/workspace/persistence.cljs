@@ -70,7 +70,7 @@
             on-dirty
             (fn []
               ;; Enable reload stoper
-              (st/emit! (st/add-event-before-unload "workspace-change"))
+              (swap! st/ongoing-tasks conj :workspace-change)
               (st/emit! (update-persistence-status {:status :pending})))
 
             on-saving
@@ -80,7 +80,7 @@
             on-saved
             (fn []
               ;; Disable reload stoper
-              (st/emit! (st/remove-event-before-unload "workspace-change"))
+              (swap! st/ongoing-tasks disj :workspace-change)
               (st/emit! (update-persistence-status {:status :saved})))]
         (->> (rx/merge
               (->> stream

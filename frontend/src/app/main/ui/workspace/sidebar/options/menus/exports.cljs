@@ -38,7 +38,7 @@
                                :object-id object-id
                                :name name))
                       exports)]
-    (st/emit! (st/add-event-before-unload "export"))
+    (swap! st/ongoing-tasks conj :export)
     (rp/query! :export-shapes-simple exports)))
 
 (defn use-download-export
@@ -53,11 +53,11 @@
        (->> (request-export (:id (first shapes)) page-id file-id filename exports)
             (rx/subs
              (fn [body]
-               (st/emit! (st/remove-event-before-unload "export"))
+               (swap! st/ongoing-tasks disj :export)
                (dom/trigger-download filename body)
                (st/emit! (dwe/update-export-status false)))
              (fn [_error]
-               (st/emit! (st/remove-event-before-unload "export"))
+               (swap! st/ongoing-tasks disj :export)
                (st/emit! (dm/error (tr "errors.unexpected-error")))
                (st/emit! (dwe/update-export-status false))))))
 
@@ -73,13 +73,13 @@
                          flatten
                          vec)]
          (dom/prevent-default event)
-         (st/emit! (st/add-event-before-unload "export"))
+         (swap! st/ongoing-tasks conj :export)
          (->> (rp/query! :export-shapes-multiple exports)
               (rx/subs
                (fn [body]
                  (st/emit! (dwe/store-export-task-id (:id body) exports filename)))
                (fn [_error]
-                 (st/emit! (st/remove-event-before-unload "export"))
+                 (swap! st/ongoing-tasks disj :export)
                  ;; TODO error en export múltiple
                  (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
      :else
@@ -148,7 +148,7 @@
          (mf/deps @exports)
          (fn [event]
            (dom/prevent-default event)
-           (st/emit! (st/add-event-before-unload "export"))
+           (swap! st/ongoing-tasks conj :export)
            (->> (rp/query! :export-shapes-multiple enabled-exports)
                 (rx/subs
                  (fn [body]

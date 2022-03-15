@@ -270,7 +270,7 @@
             export-error? (get-in state [:export :export-error?])
             resource-id (get-in state [:export :export-task-id])]
         (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
-          (st/emit! (st/remove-event-before-unload "export"))
+          (swap! st/ongoing-tasks disj :export)
           ;; dismis the detail progress after 5s
           (when (not export-error?)
             (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))

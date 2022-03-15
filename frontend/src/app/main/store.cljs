@@ -60,24 +60,10 @@
   [& events]
   #(apply ptk/emit! state events))
 
-(defonce events-before-unload (l/atom #{}))
+(defonce ongoing-tasks (l/atom #{}))
 
-(add-watch events-before-unload "::events-before-unload"
+(add-watch ongoing-tasks "::ongoing-tasks"
            (fn [_ _ _ events]
-             (if (empty? @events-before-unload)
+             (if (empty? @ongoing-tasks)
                (obj/set! js/window "onbeforeunload" nil)
                (obj/set! js/window "onbeforeunload" (constantly false)))))
-
-(defn add-event-before-unload
-  [id]
-  (ptk/reify ::add-event-before-unload
-    ptk/WatchEvent
-    (watch [_ _ _]
-      (swap! events-before-unload conj id))))
-
-(defn remove-event-before-unload
-  [id]
-  (ptk/reify ::remove-event-before-unload
-    ptk/WatchEvent
-    (watch [_ _ _]
-      (swap! events-before-unload disj id))))
