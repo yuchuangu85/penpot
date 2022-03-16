@@ -44,7 +44,7 @@
 
 (s/def ::params
   (s/keys :req-un [::exports ::profile-id]
-          :opt-un [::uri ::wait]))
+          :opt-un [::uri ::wait ::name]))
 
 (defn handler
   [{:keys [:request/auth-token] :as exchange} {:keys [exports] :as params}]
@@ -57,9 +57,9 @@
       (handle-multiple-export exchange (assoc params :exports exports)))))
 
 (defn- handle-single-export
-  [exchange {:keys [export wait uri profile-id] :as params}]
+  [exchange {:keys [export wait uri profile-id name] :as params}]
   (let [topic       (str profile-id)
-        resource    (rsc/create (:type export))
+        resource    (rsc/create (:type export) (or name (:name export)))
 
         on-progress (fn [progress]
                       (let [data {:type :export-update
@@ -72,12 +72,14 @@
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
                                   :size (:size resource)
+                                  :name (:name resource)
                                   :status "ended"}]
                         (redis/pub! topic data)))
 
         on-error    (fn [cause]
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
+                                  :name (:name resource)
                                   :status "error"
                                   :cause (ex-message cause)}]
                         (redis/pub! topic data)))
@@ -92,14 +94,15 @@
       (assoc exchange :response/body (dissoc resource :path)))))
 
 (defn- handle-multiple-export
-  [exchange {:keys [exports wait uri profile-id] :as params}]
-  (let [items       (map #(fn [] (run-export %)) exports)
+  [exchange {:keys [exports wait uri profile-id name] :as params}]
+  (let [tasks       (map #(fn [] (run-export %)) exports)
         topic       (str profile-id)
-        resource    (rsc/create :zip)
+        resource    (rsc/create :zip (or name (-> exports first :name)))
 
         on-progress (fn [progress]
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
+                                  :name (:name resource)
                                   :status "running"
                                   :progress progress}]
                         (redis/pub! topic data)))
@@ -107,6 +110,7 @@
         on-complete (fn [resource]
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
+                                  :name (:name resource)
                                   :size (:size resource)
                                   :status "ended"}]
                         (redis/pub! topic data)))
@@ -114,12 +118,13 @@
         on-error    (fn [cause]
                       (let [data {:type :export-update
                                   :resource-id (:id resource)
+                                  :name (:name resource)
                                   :status "error"
                                   :cause (ex-message cause)}]
                         (redis/pub! topic data)))
 
         proc        (rsc/create-zip :resource resource
-                                    :items items
+                                    :tasks tasks
                                     :on-progress on-progress
                                     :on-complete on-complete
                                     :on-error on-error)]

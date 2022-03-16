@@ -82,23 +82,24 @@
                 (st/emit! (msg/error (tr "errors.unexpected-error"))))))))))
 
 (defn- update-export-status2
-  [{:keys [progress status resource-id] :as data}]
-  (ptk/reify ::update-export
+  [{:keys [progress status resource-id name] :as data}]
+  (prn "update-export-status2" data)
+  (ptk/reify ::update-export-status2
     ptk/UpdateEvent
     (update [_ state]
       (cond-> state
         (= status "running")
-        (update :export assoc :export-progress (:done progress))
+        (update :export assoc :progress (:done progress))
 
         (= status "ended")
-        (update :export assoc :export-in-progress? false)))
+        (update :export assoc :in-progress false)))
 
     ptk/WatchEvent
     (watch [_ state _]
       (when (= status "ended")
         (let [filename (-> state :export :export-filename)]
           (->> (rp/query! :download-export-resource resource-id)
-               (rx/map #(dom/trigger-download filename %))))))))
+               (rx/map #(dom/trigger-download name %))))))))
 
 (defn request-simple-export
   [{:keys [export filename]}]
@@ -142,10 +143,10 @@
             profile-id  (:profile-id state)
             ws-conn     (:ws-conn state)
             params      {:exports exports
+                         :name filename
                          :profile-id profile-id
                          :wait false}]
 
-        (prn "KKK" params)
         (rx/merge
          (->> (rp/query! :export-shapes-multiple params)
               (rx/tap (fn [{:keys [id]}]

@@ -25,18 +25,21 @@
 (declare ^:private move-file)
 (declare ^:private clean-tmp)
 
+(s/def ::name ::us/string)
 (s/def ::file-id ::us/uuid)
 (s/def ::page-id ::us/uuid)
 (s/def ::frame-id ::us/uuid)
+(s/def ::uri ::us/uri)
 
 (s/def ::export
-  (s/keys :req-un [::file-id ::page-id ::frame-id]))
+  (s/keys :req-un [::file-id ::page-id ::frame-id ::name]))
 
 (s/def ::exports
   (s/every ::export :kind vector? :min-count 1))
 
 (s/def ::params
-  (s/keys :req-un [::exports]))
+  (s/keys :req-un [::exports]
+          :opt-un [::uri ::name]))
 
 (defn handler
   [{:keys [:request/auth-token] :as exchange} {:keys [exports uri] :as params}]
@@ -45,9 +48,9 @@
     (handle-export exchange (assoc params :exports exports))))
 
 (defn handle-export
-  [exchange {:keys [exports wait uri] :as params}]
+  [exchange {:keys [exports wait uri name] :as params}]
   (let [topic       (-> exports first :file-id str)
-        resource    (rsc/create :pdf)
+        resource    (rsc/create :pdf (or name (-> exports first :name)))
 
         on-progress (fn [progress]
                       (let [data {:type :export-update

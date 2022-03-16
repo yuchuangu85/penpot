@@ -283,6 +283,7 @@
              ;; separatelly by the export-modal.
              (let [defaults {:page-id page-id
                              :file-id file-id
+                             :name filename
                              :object-id (first ids)}
                    exports  (mapv #(merge % defaults) exports)]
                (if (= 1 (count exports))

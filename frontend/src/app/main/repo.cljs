@@ -116,25 +116,27 @@
        (rx/mapcat handle-response)))
 
 (defmethod query :export-shapes-simple
-  [_ {:keys [exports profile-id]}]
-  (->> (rx/of {:wait true :exports exports :profile-id profile-id})
-       (rx/mapcat #(send-export-command :cmd :export-shapes :params % :blob? false))
-       (rx/mapcat #(send-export-command :cmd :get-resource :params % :blob? true))))
+  [_ params]
+  (let [params (merge {:wait true} params)]
+    (->> (rx/of params)
+         (rx/mapcat #(send-export-command :cmd :export-shapes :params % :blob? false))
+         (rx/mapcat #(send-export-command :cmd :get-resource :params % :blob? true)))))
 
 (defmethod query :export-shapes-multiple
-  [_ {:keys [exports profile-id]}]
-  (->> (rx/of {:wait false :exports exports :profile-id profile-id})
-       (rx/mapcat #(send-export-command :cmd :export-shapes :params % :blob? false))))
+  [_ params]
+  (send-export-command :cmd :export-shapes :params params :blob? false))
 
 (defmethod query :download-export-resource
   [_ id]
-  (->> (http/send! {:method :get
-                    :uri (u/join base-uri "export")
-                    :query {:cmd :get-resource :id id}
-                    :credentials "include"
-                    :response-type :blob})
-       (rx/map http/conditional-decode-transit)
-       (rx/mapcat handle-response)))
+  (send-export-command :cmd :get-resource :params {:id id} :blob? true))
+
+  ;; (->> (http/send! {:method :get
+  ;;                   :uri (u/join base-uri "export")
+  ;;                   :query {:cmd :get-resource :id id}
+  ;;                   :credentials "include"
+  ;;                   :response-type :blob})
+  ;;      (rx/map http/conditional-decode-transit)
+  ;;      (rx/mapcat handle-response)))
 
 (defmethod query :export-frames
   [_ exports]

@@ -11,11 +11,12 @@
    ["fs" :as fs]
    ["os" :as os]
    ["path" :as path]
-   [app.util.shell :as sh]
    [app.common.data :as d]
    [app.common.data.macros :as dm]
    [app.common.exceptions :as ex]
    [app.common.uuid :as uuid]
+   [app.util.shell :as sh]
+   [cljs.core :as c]
    [cuerdas.core :as str]
    [promesa.core :as p]))
 
@@ -33,11 +34,12 @@
 
 (defn create
   "Generates ephimeral resource object."
-  [type]
+  [type name]
   (let [task-id (uuid/next)]
     {:path (get-path type task-id)
      :mtype (get-mtype type)
-     :id (dm/str (name type) "." task-id)}))
+     :name name
+     :id (dm/str (c/name type) "." task-id)}))
 
 (defn- write-as-zip!
   [{:keys [id path]} items on-progress]
@@ -55,8 +57,7 @@
                                 num  (swap! progress inc)]
                             (on-progress
                              {:total (count items)
-                              :done num
-                              :name name}))))
+                              :done num}))))
        (.pipe zip out)
        (-> (reduce (fn [res export-fn]
                      (p/then res (fn [_] (-> (export-fn) (p/then append!)))))
@@ -83,13 +84,13 @@
                        (on-error cause)
                        (on-complete result)))))))
 
-  (defn create-zip
+(defn create-zip
   "Creates a resource with multiple files merget into a single zip file."
   [& {:keys [resource tasks on-error on-progress on-complete]
       :or {on-error identity
            on-progress identity
            on-complete identity}}]
-  (let [{:keys [path id] :as resource} (or resource (create :zip))]
+  (let [{:keys [path id] :as resource} resource]
     (-> (write-as-zip! resource tasks on-progress)
         (p/then #(sh/stat path))
         (p/then #(merge resource %))
