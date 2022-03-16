@@ -68,15 +68,15 @@
         (mf/use-fn #(st/emit! (dwe/retry-last-export)))
 
         toggle-detail-visibility
-        (mf/use-fn #(st/emit! (dwe/toggle-export-detail-visibililty)))
+        (mf/use-fn #(st/emit! (dwe/toggle-detail-visibililty)))
 
         toggle-widget-visibility
-        (mf/use-fn #(st/emit! (dwe/toggle-export-detail-visibililty)))
+        (mf/use-fn #(st/emit! (dwe/toggle-widget-visibililty)))
         ]
 
     [:*
      (when widget-visible?
-       [:div.export-progress-widget {:on-click toggle-detail-visibility}
+       [:div.export-progress-widget {:on-click toggle-widget-visibility}
         [:svg {:width "32" :height "32"}
          [:circle {:r "12"
                    :cx "16"
@@ -104,7 +104,7 @@
             [:button.btn-secondary.retry {:on-click retry-last-export} (tr "workspace.options.retry")]
             [:p.progress (dm/str progress " / " total)])
 
-          [:button.modal-close-button {:on-click toggle-widget-visibility} i/close]]
+          [:button.modal-close-button {:on-click toggle-detail-visibility} i/close]]
 
          [:svg.progress-bar {:height 8 :width 280}
           [:g

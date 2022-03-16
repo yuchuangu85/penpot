@@ -41,7 +41,7 @@
 
   ([state {:keys [omit-blocked?]
            :or   {omit-blocked? false}}]
-   (let [objects (lookup-page-objects state)
+   (let [objects  (lookup-page-objects state)
          selected (->> (get-in state [:workspace-local :selected])
                        (cph/clean-loops objects))
          selectable? (fn [id]
@@ -51,3 +51,17 @@
      (into (d/ordered-set)
            (filter selectable?)
            selected))))
+
+(defn lookup-shapes
+  ([state ids]
+   (lookup-shapes state (:current-page-id state) ids))
+  ([state page-id ids]
+   (let [objects (lookup-page-objects state page-id)]
+     (into [] (keep (d/getf objects)) ids))))
+
+(defn filter-shapes
+  ([state filter-fn]
+   (lookup-shapes state (:current-page-id state) filter-fn))
+  ([state page-id filter-fn]
+   (let [objects (lookup-page-objects state page-id)]
+     (into [] (filter filter-fn) (vals objects)))))

@@ -9,7 +9,7 @@
    [app.common.data :as d]
    [app.main.refs :as refs]
    [app.main.ui.icons :as i]
-   [app.main.ui.workspace.sidebar.options.menus.exports :as we]
+   ;; [app.main.ui.workspace.sidebar.options.menus.exports :as we]
    [app.util.dom :as dom]
    [app.util.i18n :refer [tr, c]]
    [rumext.alpha :as mf]))
@@ -37,8 +37,11 @@
                    :else
                    (:name page))
 
+
+        ;; TODO: fix this
         export-in-progress? (mf/deref refs/export-in-progress?)
-        on-download (we/use-download-export shapes filename page-id file-id @exports)
+        ;; on-download (we/use-download-export shapes filename page-id file-id @exports)
+        on-download (constantly nil)
 
         add-export
         (mf/use-callback

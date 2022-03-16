@@ -7,7 +7,8 @@
 (ns app.main.ui.workspace.sidebar.options.menus.exports
   (:require
    [app.common.data :as d]
-   [app.main.data.messages :as dm]
+   [app.common.data.macros :as dm]
+   [app.main.data.messages :as msg]
    [app.main.data.modal :as modal]
    [app.main.data.exports :as dwe]
    [app.main.data.workspace.changes :as dch]
@@ -21,146 +22,99 @@
    [app.util.dom :as dom]
    [app.util.i18n :as i18n :refer  [tr, c]]
    [app.util.object :as obj]
+   [cuerdas.core :as str]
+   [app.util.timers :as ts]
    [beicon.core :as rx]
    [potok.core :as ptk]
    [rumext.alpha :as mf]))
 
-(def exports-attrs [:exports])
+(def exports-attrs
+  "Shape attrs that corresponds to exports. Used in other namespaces."
+  [:exports])
 
-(defn request-export
-  [object-id page-id file-id name exports]
-  ;; Force a persist before exporting otherwise the exported shape could be outdated
-  (st/emit! ::dwp/force-persist)
-  (let [exports (mapv (fn [export]
-                        (assoc export
-                               :page-id page-id
-                               :file-id file-id
-                               :object-id object-id
-                               :name name))
-                      exports)]
-    (swap! st/ongoing-tasks conj :export)
-    (rp/query! :export-shapes-simple exports)))
+;; (defn prepare-exports-data
+;;   [shapes file-id page-id]
+;;   (into []
+;;         (mapcat (fn [{:keys [id exports name] :as shape}]
+;;                   (map (fn [export]
+;;                          (-> export
+;;                              (assoc :enabled true)
+;;                              (assoc :page-id page-id)
+;;                              (assoc :file-id file-id)
+;;                              (assoc :object-id id)
+;;                              (assoc :name name)))
+;;                        exports)))
+;;         shapes))
 
-(defn use-download-export
-  [shapes filename page-id file-id exports]
-  (mf/use-callback
-   (mf/deps shapes filename page-id file-id exports)
-   (cond
-     (and (= (count shapes) 1) (= (count exports) 1))
-     (fn [event]
-       (dom/prevent-default event)
-       (st/emit! (dwe/update-export-status true))
-       (->> (request-export (:id (first shapes)) page-id file-id filename exports)
-            (rx/subs
-             (fn [body]
-               (swap! st/ongoing-tasks disj :export)
-               (dom/trigger-download filename body)
-               (st/emit! (dwe/update-export-status false)))
-             (fn [_error]
-               (swap! st/ongoing-tasks disj :export)
-               (st/emit! (dm/error (tr "errors.unexpected-error")))
-               (st/emit! (dwe/update-export-status false))))))
 
-     (and (= (count shapes) 1) (> (count exports) 1))
-     (fn [event]
-       (let [shape (first shapes)
-             exports (-> (mapv #(assoc %
-                                       :page-id page-id
-                                       :file-id file-id
-                                       :object-id (:id shape)
-                                       :name (:name shape))
-                               exports)
-                         flatten
-                         vec)]
-         (dom/prevent-default event)
-         (swap! st/ongoing-tasks conj :export)
-         (->> (rp/query! :export-shapes-multiple exports)
-              (rx/subs
-               (fn [body]
-                 (st/emit! (dwe/store-export-task-id (:id body) exports filename)))
-               (fn [_error]
-                 (swap! st/ongoing-tasks disj :export)
-                 ;; TODO error en export múltiple
-                 (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
-     :else
-     (fn [event]
-       (dom/prevent-default event)
-       (st/emit!
-        (modal/show
-         {:type :export-shapes
-          :shapes shapes}))))))
 
-(defn use-download-export-by-id
-  [ids filename page-id file-id exports]
-  (let [objects (deref (refs/objects-by-id ids))]
-    (use-download-export objects filename page-id file-id exports)))
+(defn prepare-exports-data
+  [shapes file-id page-id]
+  (letfn [(process-shape [{:keys [id name] :as shape}]
+            (update shape :exports (fn [exports]
+                                     (mapv (fn [export]
+                                             (-> export
+                                                 (assoc :enabled true)
+                                                 (assoc :page-id page-id)
+                                                 (assoc :file-id file-id)
+                                                 (assoc :object-id id)
+                                                 (assoc :name name)))
+                                           exports))))]
+    (sequence (map process-shape) shapes)))
+
 
 (mf/defc export-shapes-dialog
   {::mf/register modal/components
    ::mf/register-as :export-shapes}
-  [{:keys [shapes]}]
-  (let [export-in-progress? (mf/deref refs/export-in-progress?)
-        page-id (:current-page-id @st/state)
-        page (wsh/lookup-page @st/state)
-        file-id (:current-file-id @st/state)
-        selected (wsh/lookup-selected @st/state)
-        shapes (if (some? shapes)
-                 shapes
-                 (if (> (count selected) 0)
-                   (deref (refs/objects-by-id selected))
-                   (->> (wsh/lookup-page-objects @st/state)
-                        vals
-                        (filter #(> (count (:exports %)) 0)))))
-        exports (mf/use-state (mapv (fn [shape]
-                                      (assoc shape :exports (mapv #(assoc %
-                                                                          :enabled true
-                                                                          :page-id page-id
-                                                                          :file-id file-id
-                                                                          :object-id (:id shape)
-                                                                          :name (:name shape))
-                                                                  (:exports shape)))) shapes))
+  [{:keys [shape-ids page-id file-id]}]
+  (let [lstate          (mf/deref refs/export)
+        in-progress?    (:in-progress lstate)
 
-        enabled-exports (->> (map :exports @exports)
-                             (flatten)
-                             (filterv #(get % :enabled)))
+        selected        (wsh/lookup-selected @st/state)
+        shapes          (cond
+                          (some? shape-ids)      (wsh/lookup-shapes @st/state shape-ids)
+                          (> (count selected) 0) (wsh/lookup-selected @st/state selected)
+                          :else                  (wsh/filter-shapes @st/state #(pos? (count (:exports %)))))
 
-        checked (->> (map :exports @exports)
-                     (flatten)
-                     (filter #(get % :enabled)))
+        exports         (mf/use-state (prepare-exports-data shapes file-id page-id))
 
-        all (->> (map :exports @exports)
-                 (flatten))
+        all-exports     (into [] (mapcat :exports) @exports)
+        all-checked?    (every? :enabled all-exports)
+        all-unchecked?  (every? (complement :enabled) all-exports)
 
-        all-checked? (->> all
-                          (every? #(get % :enabled)))
 
-        all-unchecked? (->> all
-                            (every? #(not (get % :enabled))))
+        enabled-exports (into []
+                              (comp (mapcat :exports)
+                                    (filter :enabled))
+                              @exports)
+
+
+        ;; checked         (->> (map :exports @exports)
+        ;;                      (flatten)
+        ;;                      (filter #(get % :enabled)))
 
         cancel-fn
-        (mf/use-callback
+        (mf/use-fn
          (fn [event]
            (dom/prevent-default event)
            (st/emit! (modal/hide))))
 
         accept-fn
         (mf/use-callback
-         (mf/deps @exports)
+         (mf/deps @all-exports)
          (fn [event]
            (dom/prevent-default event)
            (swap! st/ongoing-tasks conj :export)
-           (->> (rp/query! :export-shapes-multiple enabled-exports)
+           #_(->> (rp/query! :export-shapes-multiple enabled-exports)
                 (rx/subs
                  (fn [body]
                    (st/emit! (modal/hide))
-                   (st/emit!
-                    (modal/show
-                     {:type :export-progress-dialog}))
-                   (st/emit! (dwe/store-export-task-id (:id body) enabled-exports (:name page))))
+                   (st/emit! (modal/show {:type :export-progress-dialog}))
+                   #_(st/emit! (dwe/store-export-task-id (:id body) enabled-exports (:name page))))
                  (fn [_error]
-                   (st/emit! (dm/error (tr "errors.unexpected-error"))))))))
+                   (st/emit! (msg/error (tr "errors.unexpected-error"))))))))
 
-        on-change-handler
+        on-toggle-enabled
         (fn [_ shape-index export-index]
           (swap! exports update-in [shape-index :exports export-index :enabled] not))
 
@@ -169,7 +123,8 @@
           (reset! exports (mapv (fn [shape] (assoc shape :exports (mapv #(assoc % :enabled (not all-checked?)) (:exports shape)))) shapes)))]
 
     [:div.modal-overlay
-     [:div.modal-container.export-shapes-dialog {:class (when (empty? all) "no-shapes")}
+     [:div.modal-container.export-shapes-dialog
+      {:class (when (empty? all-exports) "no-shapes")}
 
       [:div.modal-header
        [:div.modal-header-title
@@ -180,7 +135,7 @@
 
       [:*
        [:div.modal-content
-        (if (> (count all) 0)
+        (if (> (count all-exports) 0)
           [:*
            [:div.header
             [:div.field.check {:on-click change-all}
@@ -188,35 +143,39 @@
                all-checked? [:span i/checkbox-checked]
                all-unchecked? [:span i/checkbox-unchecked]
                :else [:span i/checkbox-intermediate])]
-            [:div.field.title (tr "dashboard.export-shapes.selected" (c (count checked)) (c (count all)))]]
+            [:div.field.title (tr "dashboard.export-shapes.selected"
+                                  (c (count enabled-exports))
+                                  (c (count @all-exports)))]]
 
            [:div.body
             (for [[shape-index shape] (d/enumerate shapes)]
               (for [[export-index export] (d/enumerate (:exports shape))]
-                [:div.row
-                 [:div.field.check {:on-click #(on-change-handler % shape-index export-index)}
-                  (if (get-in @exports [shape-index :exports export-index :enabled])
-                    [:span i/checkbox-checked]
-                    [:span i/checkbox-unchecked])]
+                (let [{:keys [x y width height]} (:selrect shape)
+                      shape-name    (:name shape)
+                      export-suffix (:suffix export)]
+                  [:div.row
+                   [:div.field.check {:on-click #(on-toggle-enabled % shape-index export-index)}
+                    (if (get-in @exports [shape-index :exports export-index :enabled])
+                      [:span i/checkbox-checked]
+                      [:span i/checkbox-unchecked])]
 
-                 [:div.field.image
-                  [:svg {:view-box (str (get-in shape[:selrect :x]) " " (get-in shape [:selrect :y]) " " (get-in shape [:selrect :width]) " " (get-in shape [:selrect :height]))
-                         :width 24
-                         :height 20
-                         :version "1.1"
-                         :xmlns "http://www.w3.org/2000/svg"
-                         :xmlnsXlink "http://www.w3.org/1999/xlink"
-                         ;; Fix Chromium bug about color of html texts
-                         ;; https://bugs.chromium.org/p/chromium/issues/detail?id=1244560#c5
-                         :style {:-webkit-print-color-adjust :exact}}
+                   [:div.field.image
+                    [:svg {:view-box (dm/str x " " y " " width " " height)
+                           :width 24
+                           :height 20
+                           :version "1.1"
+                           :xmlns "http://www.w3.org/2000/svg"
+                           :xmlnsXlink "http://www.w3.org/1999/xlink"
+                           ;; Fix Chromium bug about color of html texts
+                           ;; https://bugs.chromium.org/p/chromium/issues/detail?id=1244560#c5
+                           :style {:-webkit-print-color-adjust :exact}}
 
-                   [:& shape-wrapper {:shape shape}]]]
+                     [:& shape-wrapper {:shape shape}]]]
 
-                 [:div.field.name (str (cond-> (:name shape)
-                                         (:suffix export) (str (:suffix export))))]
-
-                 [:div.field.scale (str (* (int (get-in shape [:selrect :width])) (:scale export)) "x" (* (int (get-in shape [:selrect :height])) (:scale export)) "px ")]
-                 [:div.field.extension (-> (name (:type export)) clojure.string/upper-case)]]))]
+                   [:div.field.name (cond-> shape-name export-suffix (str export-suffix))]
+                   [:div.field.scale (dm/str (* width (:scale export)) "x"
+                                             (* height (:scale export)) "px ")]
+                   [:div.field.extension (-> export :type d/name str/upper)]])))]
 
            [:div.modal-footer
             [:div.action-buttons
@@ -227,13 +186,13 @@
 
              [:input.accept-button.primary
               {:class (dom/classnames
-                       :btn-disabled export-in-progress?)
-               :disabled export-in-progress?
+                       :btn-disabled in-progress?)
+               :disabled in-progress?
                :type "button"
-               :value (if export-in-progress?
+               :value (if in-progress?
                         (tr "workspace.options.exporting-object")
                         (tr "labels.export"))
-               :on-click (when-not export-in-progress? accept-fn)}]]]]
+               :on-click (when-not in-progress? accept-fn)}]]]]
 
           [:div.no-selection
            [:img {:src "images/export-no-shapes.png" :border "0"}]
@@ -247,28 +206,33 @@
   [{:keys [ids type values page-id file-id] :as props}]
   (let [exports      (:exports values [])
 
+
+        _    (prn ids type values)
+
         state        (mf/deref refs/export)
         in-progress? (:in-progress state)
 
-        filename     (let [page   (wsh/lookup-page @st/state page-id)
-                           suffix (-> exports first :suffix)
-                           sname  (get-in page [:objects (first ids) :name])]
-                       (cond-> sname
-                         (and (= 1 (count exports)) (some? suffix))
-                         (str suffix)))
+        filename     (when (seqable? exports)
+                       (let [shapes (wsh/lookup-shapes @st/state ids)
+                             sname  (-> shapes first :name)
+                             suffix (-> exports first :suffix)]
+                         (cond-> sname
+                           (and (= 1 (count exports)) (some? suffix))
+                           (str suffix))))
 
         scale-enabled?
         (mf/use-callback
          (fn [export]
            (#{:png :jpeg} (:type export))))
 
-        ;; on-download (use-download-export-by-id ids filename page-id file-id exports)
-
-        on-download-error
-        (fn [cause])
+        ;; ;; This only can be caused when
+        ;; on-download-error
+        ;; (fn [cause]
+        ;;   (st/emit! (msg/error (tr "errors.unexpected-error"))))
 
         on-download-success
-        (fn [_])
+        (fn [_]
+          (ts/schedule 5000 #(st/emit! (dwe/clear-export-state))))
 
         on-download
         (mf/use-fn
@@ -276,7 +240,10 @@
          (fn [event]
            (dom/prevent-default event)
            (if (= :multiple exports)
-             (st/emit! (modal/show {:type :export-shapes :shape-ids ids}))
+             (st/emit! (modal/show {:type :export-shapes
+                                    :page-id page-id
+                                    :file-id file-id
+                                    :shape-ids ids}))
 
              ;; in other all cases we only allowed to have a single
              ;; shape-id because multiple shape-ids are handled
@@ -291,14 +258,14 @@
                             (with-meta {:export (first exports)
                                         :filename filename}
                               {:on-success on-download-success
-                               :on-error on-download-error})))
+                               ;; :on-error on-download-error
+                               })))
                  (st/emit! (dwe/request-multiple-export
                             (with-meta {:exports exports
-                                        :filename filename
-                                        :file-id file-id
-                                        :page-id page-id}
+                                        :filename filename}
                               {:on-success on-download-success
-                               :on-error on-download-error}))))))))
+                               ;; :on-error on-download-error
+                               }))))))))
 
 
         ;; TODO: maybe move to specific events for avoid to have this logic here?

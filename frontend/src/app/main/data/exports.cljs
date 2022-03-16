@@ -6,90 +6,46 @@
 
 (ns app.main.data.exports
   (:require
-   [app.main.data.messages :as msg]
    [app.main.repo :as rp]
    [app.main.store :as st]
-   [app.util.i18n :as i18n :refer  [tr]]
+   [app.main.data.workspace.persistence :as dwp]
    [app.util.dom :as dom]
-   ;; [app.main.data.websocket :as ws]
    [app.util.websocket :as ws]
    [beicon.core :as rx]
    [potok.core :as ptk]))
 
-(defn toggle-export-detail-visibililty
+(defn toggle-detail-visibililty
   []
-  (ptk/reify ::toggle-export-detail-visibililty
+  (ptk/reify ::toggle-detail-visibililty
     ptk/UpdateEvent
     (update [_ state]
-      (let [visibility (get-in state [:export :export-detail-visibililty] false)]
-        (-> state
-            (assoc-in [:export :export-detail-visibililty] (not visibility)))))))
+      (update-in state [:export :detail-visible] not))))
 
-(defn set-export-detail-visibililty
-  [visibility]
-  (ptk/reify ::set-export-detail-visibililty
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (assoc-in [:export :export-detail-visibililty] visibility)))))
-
-(defn set-export-widget-visibililty
-  [visibility]
-  (ptk/reify ::set-export-widget-visibililty
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (assoc-in [:export :export-widget-visibililty] visibility)))))
-
-(defn update-export-status
-  [status]
-  (ptk/reify ::update-export-status
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (assoc-in [:export :export-in-progress?] status)))))
-
-(defn store-export-task-id
-  [id exports filename]
-  (ptk/reify ::store-export-task-id
-    ptk/UpdateEvent
-    (update [_ state]
-      (-> state
-          (assoc :export {;; TODO quitar sufjo
-                          :export-in-progress? true
-                          :export-health "OK"
-                          :export-error? false
-                          :export-widget-visibililty true
-                          :export-detail-visibililty true
-                          :exports exports
-                          :export-progress 0
-                          ;; TODO: rename to resource id
-                          :export-task-id id
-                          :export-filename filename})))))
-
-(defn retry-last-export
+(defn toggle-widget-visibililty
   []
-  (ptk/reify ::retry-last-export
-    ptk/WatchEvent
-    (watch [_ state _]
-      (let [exports (get-in state [:export :exports])
-            filename (get-in state [:export :export-filename])]
-        (->> (rp/query! :export-shapes-multiple exports)
-             (rx/subs
-              (fn [body]
-                (st/emit! (store-export-task-id (:id body) exports filename)))
-              (fn [_error]
-                (st/emit! (msg/error (tr "errors.unexpected-error"))))))))))
+  (ptk/reify ::toggle-widget-visibility
+    ptk/UpdateEvent
+    (update [_ state]
+      (update-in state [:export :widget-visible] not))))
 
-(defn- update-export-status2
+(defn clear-export-state
+  []
+  (ptk/reify ::clear-export-state
+    ptk/UpdateEvent
+    (update [_ state]
+      (dissoc state :export))))
+
+(defn- update-export-status
   [{:keys [progress status resource-id name] :as data}]
-  (prn "update-export-status2" data)
-  (ptk/reify ::update-export-status2
+  (ptk/reify ::update-export-status
     ptk/UpdateEvent
     (update [_ state]
       (cond-> state
         (= status "running")
         (update :export assoc :progress (:done progress))
+
+        (= status "error")
+        (update :export assoc :error (:cause data))
 
         (= status "ended")
         (update :export assoc :in-progress false)))
@@ -104,18 +60,18 @@
 (defn request-simple-export
   [{:keys [export filename]}]
   (ptk/reify ::request-simple-export
+    ptk/WatchEvent
+    (watch [_ _ _]
+      (rx/of ::dwp/force-persist))
+
     ptk/EffectEvent
     (effect [_ state _]
       (let [profile-id (:profile-id state)
             params     {:exports [export]
                         :profile-id profile-id}]
-
         (->> (rp/query! :export-shapes-simple params)
              (rx/subs (fn [data]
                         (dom/trigger-download filename data))))))))
-
-;; (rx/catch (fn [_cause]
-;; (rx/of (dm/error (tr "errors.unexpected-error"))))
 
 (defn request-multiple-export
   [{:keys [filename exports] :as params}]
@@ -129,9 +85,7 @@
                             :detail-visible true
                             :exports exports
                             :progress 0
-                            ;; TODO: rename to resource id
-                            ;; :export-task-id id
-                            ;; :export-filename filename
+                            :filename filename
                             }))
 
     ptk/WatchEvent
@@ -145,36 +99,45 @@
             params      {:exports exports
                          :name filename
                          :profile-id profile-id
-                         :wait false}]
+                         :wait false}
+
+            progress-stream
+            (->> (ws/get-rcv-stream ws-conn)
+                 (rx/filter ws/message-event?)
+                 (rx/map :payload)
+                 (rx/filter #(= :export-update (:type %)))
+                 (rx/filter #(= @resource-id (:resource-id %)))
+                 (rx/share))
+
+            stoper
+            (->> progress-stream
+                 (rx/filter #(or (= "ended" (:status %))
+                                 (= "error" (:status %))))
+                 (rx/delay 200))]
+
+        (swap! st/ongoing-tasks conj :export)
 
         (rx/merge
+         (rx/of ::dwp/force-persist))
          (->> (rp/query! :export-shapes-multiple params)
+              (rx/delay 200)
               (rx/tap (fn [{:keys [id]}]
                         (vreset! resource-id id)))
               (rx/map (fn [{:keys [id]}]
                         #(update % :export assoc :export-task-id id)))
               (rx/catch (fn [cause]
-                          (on-error cause)
-                          (rx/throw cause))))
-         (->> (ws/get-rcv-stream ws-conn)
-              (rx/filter ws/message-event?)
-              (rx/map :payload)
-              (rx/filter #(= :export-update (:type %)))
-              (rx/tap (fn [v] (prn "EXPORT UPDATE" v)))
-              (rx/filter #(= @resource-id (:resource-id %)))
-              (rx/map update-export-status2)))))))
+                          (rx/of #(update :export assoc :error cause)))))
+         (->> progress-stream
+              (rx/map update-export-status)
+              (rx/take-until stoper)
+              (rx/finalize (fn []
+                             (swap! st/ongoing-tasks disj :export))))))))
 
-;; (defn request-export
-;;   [{:keys [exports]}]
-;;   (ptk/reify ::request-export
-;;     ptk/WatchEvent
-;;     (watch [_ state _]
-
-
-
-;;     (swap! st/ongoing-tasks conj :export)
-;;     (rp/query! :export-shapes-simple exports)))
-
-
-
+(defn retry-last-export
+  []
+  (ptk/reify ::retry-last-export
+    ptk/WatchEvent
+    (watch [_ state _]
+      (let [{:keys [exports filename]} (:export state)]
+        (rx/of (request-multiple-export {:exports exports :filename filename}))))))
 
