@@ -355,22 +355,20 @@
 (s/def ::object-id ::us/uuid)
 (s/def ::scale ::us/number)
 (s/def ::token ::us/string)
-(s/def ::filename ::us/string)
 (s/def ::uri ::us/uri)
 
-(s/def ::render-params
+(s/def ::params
   (s/keys :req-un [::name ::suffix ::type ::object-id ::page-id ::file-id ::scale ::token]
-          :opt-un [::filename ::uri]))
+          :opt-un [::uri]))
 
 (defn render
   [params]
-  (us/assert ::render-params params)
+  (us/assert ::params params)
   (p/let [content (render-object params)]
     {:data content
-     :name (or (:filename params)
-                   (str (:name params)
-                        (:suffix params "")
-                        ".svg"))
+     :name (str (:name params)
+                (:suffix params "")
+                ".svg")
      :size (alength content)
      :mtype "image/svg+xml"}))
 

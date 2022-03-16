@@ -155,7 +155,8 @@
                 (assoc :profile-id profile-id)
                 (assoc :updated-at (dt/now))
                 (update :color update-color presence)
-                (assoc :text-color (if (contains? ["#00fa9a" "#ffd700" "#dda0dd" "#ffafda"] (update-color (:color presence) presence))
+                (assoc :text-color (if (contains? ["#00fa9a" "#ffd700" "#dda0dd" "#ffafda"]
+                                                  (update-color (:color presence) presence))
                                      "#000"
                                      "#fff"))))
 
@@ -169,7 +170,6 @@
     (ptk/reify ::handle-presence
       ptk/UpdateEvent
       (update [_ state]
-        ;; (let [profiles (:users state)]
         (if (or (= :disconnect type) (= :leave-file type))
           (update state :workspace-presence dissoc session-id)
           (update state :workspace-presence update-presence))))))
@@ -187,96 +187,96 @@
                           :updated-at (dt/now)
                           :page-id page-id))))))
 
-(s/def ::type keyword?)
-(s/def ::profile-id uuid?)
-(s/def ::file-id uuid?)
-(s/def ::session-id uuid?)
-(s/def ::revn integer?)
-(s/def ::changes ::spec.change/changes)
+;; (s/def ::type keyword?)
+;; (s/def ::profile-id uuid?)
+;; (s/def ::file-id uuid?)
+;; (s/def ::session-id uuid?)
+;; (s/def ::revn integer?)
+;; (s/def ::changes ::spec.change/changes)
 
-(s/def ::file-change-event
-  (s/keys :req-un [::type ::profile-id ::file-id ::session-id ::revn ::changes]))
+;; (s/def ::file-change-event
+;;   (s/keys :req-un [::type ::profile-id ::file-id ::session-id ::revn ::changes]))
 
-(defn handle-file-change
-  [{:keys [file-id changes] :as msg}]
-  (us/assert ::file-change-event msg)
-  (ptk/reify ::handle-file-change
-    ptk/WatchEvent
-    (watch [_ _ _]
-      (let [changes-by-pages (group-by :page-id changes)
-            process-page-changes
-            (fn [[page-id changes]]
-              (dch/update-indices page-id changes))]
+;; (defn handle-file-change
+;;   [{:keys [file-id changes] :as msg}]
+;;   (us/assert ::file-change-event msg)
+;;   (ptk/reify ::handle-file-change
+;;     ptk/WatchEvent
+;;     (watch [_ _ _]
+;;       (let [changes-by-pages (group-by :page-id changes)
+;;             process-page-changes
+;;             (fn [[page-id changes]]
+;;               (dch/update-indices page-id changes))]
 
-        (rx/merge
-         (rx/of (dwp/shapes-changes-persisted file-id msg))
+;;         (rx/merge
+;;          (rx/of (dwp/shapes-changes-persisted file-id msg))
 
-         (when-not (empty? changes-by-pages)
-           (rx/from (map process-page-changes changes-by-pages))))))))
+;;          (when-not (empty? changes-by-pages)
+;;            (rx/from (map process-page-changes changes-by-pages))))))))
 
-(s/def ::library-change-event
-  (s/keys :req-un [::type
-                   ::profile-id
-                   ::file-id
-                   ::session-id
-                   ::revn
-                   ::modified-at
-                   ::changes]))
+;; (s/def ::library-change-event
+;;   (s/keys :req-un [::type
+;;                    ::profile-id
+;;                    ::file-id
+;;                    ::session-id
+;;                    ::revn
+;;                    ::modified-at
+;;                    ::changes]))
 
-(defn handle-library-change
-  [{:keys [file-id modified-at changes revn] :as msg}]
-  (us/assert ::library-change-event msg)
-  (ptk/reify ::handle-library-change
-    ptk/WatchEvent
-    (watch [_ state _]
-      (when (contains? (:workspace-libraries state) file-id)
-        (rx/of (dwl/ext-library-changed file-id modified-at revn changes)
-               (dwl/notify-sync-file file-id))))))
+;; (defn handle-library-change
+;;   [{:keys [file-id modified-at changes revn] :as msg}]
+;;   (us/assert ::library-change-event msg)
+;;   (ptk/reify ::handle-library-change
+;;     ptk/WatchEvent
+;;     (watch [_ state _]
+;;       (when (contains? (:workspace-libraries state) file-id)
+;;         (rx/of (dwl/ext-library-changed file-id modified-at revn changes)
+;;                (dwl/notify-sync-file file-id))))))
 
 ;; TODO: review this
 ;; size
 ;; progress
-(s/def ::export-update-event
-  (s/keys :req-un [::type
-                   ::resource-id
-                   ::status]))
+;; (s/def ::export-update-event
+;;   (s/keys :req-un [::type
+;;                    ::resource-id
+;;                    ::status]))
 
-(defn handle-export-update
-  [{:keys [resource-id status] :as msg}]
-  (us/assert ::export-update-event msg)
-  (ptk/reify ::handle-export-update
-    ptk/WatchEvent
-    (watch [_ state _]
-      (let [export-in-progress? (get-in state [:export :export-in-progress?])
-            export-error? (get-in state [:export :export-error?])
-            resource-id (get-in state [:export :export-task-id])]
-        (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
-          (swap! st/ongoing-tasks disj :export)
-          ;; dismis the detail progress after 5s
-          (when (not export-error?)
-            (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
-            (ts/schedule 5000 (st/emitf (dwe/set-export-widget-visibililty false))))
+;; (defn handle-export-update
+;;   [{:keys [resource-id status] :as msg}]
+;;   (us/assert ::export-update-event msg)
+;;   (ptk/reify ::handle-export-update
+;;     ptk/WatchEvent
+;;     (watch [_ state _]
+;;       (let [export-in-progress? (get-in state [:export :export-in-progress?])
+;;             export-error? (get-in state [:export :export-error?])
+;;             resource-id (get-in state [:export :export-task-id])]
+;;         (when (and (not export-in-progress?) (= (:resource-id msg) resource-id))
+;;           (swap! st/ongoing-tasks disj :export)
+;;           ;; dismis the detail progress after 5s
+;;           (when (not export-error?)
+;;             (ts/schedule 5000 (st/emitf (dwe/set-export-detail-visibililty false)))
+;;             (ts/schedule 5000 (st/emitf (dwe/set-export-widget-visibililty false))))
 
-          (->> (rp/query! :download-export-resource resource-id)
-               (rx/subs
-                (fn [body]
-                  (dom/trigger-download (get-in state [:export :export-filename]) body))
-                (fn [_error]
-                  (st/emit! (dm/error (tr "errors.unexpected-error")))))))))
+;;           (->> (rp/query! :download-export-resource resource-id)
+;;                (rx/subs
+;;                 (fn [body]
+;;                   (dom/trigger-download (get-in state [:export :export-filename]) body))
+;;                 (fn [_error]
+;;                   (st/emit! (dm/error (tr "errors.unexpected-error")))))))))
 
-    ptk/UpdateEvent
-    (update [_ state]
-      (let [resource-id (get-in state [:export :export-task-id])]
-        (cond-> state
-          (and (= status "running") (= (:resource-id msg) resource-id))
-          (update :export (fn [export]
-                            (assoc export
-                                   :export-progress (get-in msg [:progress :done]))))
+;;     ptk/UpdateEvent
+;;     (update [_ state]
+;;       (let [resource-id (get-in state [:export :export-task-id])]
+;;         (cond-> state
+;;           (and (= status "running") (= (:resource-id msg) resource-id))
+;;           (update :export (fn [export]
+;;                             (assoc export
+;;                                    :export-progress (get-in msg [:progress :done]))))
 
-          (and (= status "ended") (= (:resource-id msg) resource-id))
-          (update :export (fn [export]
-                            (assoc export
-                                   :export-in-progress? false)))
+;;           (and (= status "ended") (= (:resource-id msg) resource-id))
+;;           (update :export (fn [export]
+;;                             (assoc export
+;;                                    :export-in-progress? false)))
 
-          ;;TODO: status "error"
-          )))))
+;;           ;;TODO: status "error"
+;;           )))))

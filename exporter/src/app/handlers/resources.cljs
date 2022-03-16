@@ -44,7 +44,7 @@
   (let [^js zip  (arc/create "zip")
         ^js out  (fs/createWriteStream path)
         append!  (fn [{:keys [data name] :as result}]
-                  (.append zip data #js {:name name}))
+                   (.append zip data #js {:name name}))
         progress (atom 0)]
     (p/create
      (fn [resolve reject]
@@ -66,20 +66,31 @@
            (p/catch reject))))))
 
 (defn create-simple
-  [{:keys [type data] :as params}]
-  (let [{:keys [path] :as resource} (create type)]
-    (-> (.writeFile fs/promises path data)
+  [& {:keys [task resource on-progress on-complete on-error]
+      :or {on-progress identity
+           on-complete identity
+           on-error identity}
+      :as params}]
+  (let [path (:path resource)]
+    (-> (task)
+        (p/then (fn [{:keys [data name]}]
+                  (on-progress {:total 1 :done 1 :name name})
+                  (.writeFile fs/promises path data)))
         (p/then #(sh/stat path))
-        (p/then #(merge resource %)))))
+        (p/then #(merge resource %))
+        (p/finally (fn [result cause]
+                     (if cause
+                       (on-error cause)
+                       (on-complete result)))))))
 
-(defn create-zip
+  (defn create-zip
   "Creates a resource with multiple files merget into a single zip file."
-  [& {:keys [resource items on-error on-progress on-complete]
+  [& {:keys [resource tasks on-error on-progress on-complete]
       :or {on-error identity
            on-progress identity
            on-complete identity}}]
   (let [{:keys [path id] :as resource} (or resource (create :zip))]
-    (-> (write-as-zip! resource items on-progress)
+    (-> (write-as-zip! resource tasks on-progress)
         (p/then #(sh/stat path))
         (p/then #(merge resource %))
         (p/finally (fn [result cause]

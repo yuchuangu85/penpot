@@ -53,17 +53,16 @@
 (s/def ::object-id ::us/uuid)
 (s/def ::scale ::us/number)
 (s/def ::token ::us/string)
-(s/def ::filename ::us/string)
 (s/def ::origin ::us/string)
 (s/def ::uri ::us/uri)
 
 (s/def ::params
   (s/keys :req-un [::name ::suffix ::type ::object-id ::page-id ::scale ::token ::file-id]
-          :opt-un [::filename ::origin ::uri]))
+          :opt-un [::origin ::uri]))
 
 (defn render
   [params]
-  (us/verify ::render-params params)
+  (us/verify ::params params)
   (when (and (:origin params)
              (not (contains? (cf/get :origin-white-list) (:origin params))))
     (ex/raise :type :validation
@@ -73,12 +72,11 @@
 
   (p/let [content (screenshot-object params)]
     {:data content
-     :name (or (:filename params)
-               (str (:name params)
-                    (:suffix params "")
-                    (case (:type params)
-                      :png ".png"
-                      :jpeg ".jpg")))
+     :name (str (:name params)
+                (:suffix params "")
+                (case (:type params)
+                  :png ".png"
+                  :jpeg ".jpg"))
      :size (alength content)
      :mtype (case (:type params)
               :png "image/png"

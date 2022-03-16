@@ -105,36 +105,26 @@
        (rx/map http/conditional-decode-transit)
        (rx/mapcat handle-response)))
 
-(defmethod query :export-shapes-simple
-  [_ exports]
-  (letfn [(send-command [& {:keys [cmd params blob?]}]
-            (->> (http/send! {:method :post
-                              :uri (u/join base-uri "export")
-                              :body (http/transit-data (assoc params :cmd cmd))
-                              :credentials "include"
-                              :response-type (if blob? :blob :text)})
-                 (rx/map http/conditional-decode-transit)
-                 (rx/mapcat handle-response)))]
+(defn- send-export-command
+  [& {:keys [cmd params blob?]}]
+  (->> (http/send! {:method :post
+                    :uri (u/join base-uri "export")
+                    :body (http/transit-data (assoc params :cmd cmd))
+                    :credentials "include"
+                    :response-type (if blob? :blob :text)})
+       (rx/map http/conditional-decode-transit)
+       (rx/mapcat handle-response)))
 
-    (->> (rx/of {:wait true
-                 :exports exports})
-         (rx/mapcat #(send-command :cmd :export-shapes :params % :blob? false))
-         (rx/mapcat #(send-command :cmd :get-resource :params % :blob? true)))))
+(defmethod query :export-shapes-simple
+  [_ {:keys [exports profile-id]}]
+  (->> (rx/of {:wait true :exports exports :profile-id profile-id})
+       (rx/mapcat #(send-export-command :cmd :export-shapes :params % :blob? false))
+       (rx/mapcat #(send-export-command :cmd :get-resource :params % :blob? true))))
 
 (defmethod query :export-shapes-multiple
-  [_ exports]
-  (letfn [(send-command [& {:keys [cmd params blob?]}]
-            (->> (http/send! {:method :post
-                              :uri (u/join base-uri "export")
-                              :body (http/transit-data (assoc params :cmd cmd))
-                              :credentials "include"
-                              :response-type (if blob? :blob :text)})
-                 (rx/map http/conditional-decode-transit)
-                 (rx/mapcat handle-response)))]
-
-    (->> (rx/of {:wait false
-                 :exports exports})
-         (rx/mapcat #(send-command :cmd :export-shapes :params % :blob? false)))))
+  [_ {:keys [exports profile-id]}]
+  (->> (rx/of {:wait false :exports exports :profile-id profile-id})
+       (rx/mapcat #(send-export-command :cmd :export-shapes :params % :blob? false))))
 
 (defmethod query :download-export-resource
   [_ id]

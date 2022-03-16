@@ -48,23 +48,21 @@
 (s/def ::object-id ::us/uuid)
 (s/def ::scale ::us/number)
 (s/def ::token ::us/string)
-(s/def ::filename ::us/string)
 (s/def ::save-path ::us/string)
 (s/def ::uri ::us/uri)
 
 (s/def ::render-params
   (s/keys :req-un [::name ::suffix ::object-id ::page-id ::scale ::token ::file-id]
-          :opt-un [::filename ::save-path ::uri]))
+          :opt-un [::save-path ::uri]))
 
 (defn render
   [params]
   (us/assert ::render-params params)
   (p/let [content (pdf-from-object params)]
     {:data content
-     :name (or (:filename params)
-               (str (:name params)
-                    (:suffix params "")
-                    ".pdf"))
+     :name (str (:name params)
+                (:suffix params "")
+                ".pdf")
      :size (alength content)
      :mtype "application/pdf"}))
 

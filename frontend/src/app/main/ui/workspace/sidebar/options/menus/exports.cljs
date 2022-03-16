@@ -9,8 +9,8 @@
    [app.common.data :as d]
    [app.main.data.messages :as dm]
    [app.main.data.modal :as modal]
+   [app.main.data.exports :as dwe]
    [app.main.data.workspace.changes :as dch]
-   [app.main.data.workspace.exports :as dwe]
    [app.main.data.workspace.persistence :as dwp]
    [app.main.data.workspace.state-helpers :as wsh]
    [app.main.refs :as refs]
@@ -241,48 +241,71 @@
            [:p (tr "dashboard.export-shapes.how-to")]
            [:p (tr "dashboard.export-shapes.how-to-link")]])]]]]))
 
+
 (mf/defc exports-menu
   {::mf/wrap [#(mf/memo' % (mf/check-props ["ids" "values" "type" "page-id" "file-id"]))]}
   [{:keys [ids type values page-id file-id] :as props}]
-  (let [exports  (:exports values [])
+  (let [exports      (:exports values [])
+
+        state        (mf/deref refs/export)
+        in-progress? (:in-progress state)
+
+        filename     (let [page   (wsh/lookup-page @st/state page-id)
+                           suffix (-> exports first :suffix)
+                           sname  (get-in page [:objects (first ids) :name])]
+                       (cond-> sname
+                         (and (= 1 (count exports)) (some? suffix))
+                         (str suffix)))
 
         scale-enabled?
         (mf/use-callback
          (fn [export]
            (#{:png :jpeg} (:type export))))
 
-        page (wsh/lookup-page @st/state page-id)
-        first-object-name (-> (:objects page)
-                              (get (first ids))
-                              :name)
+        ;; on-download (use-download-export-by-id ids filename page-id file-id exports)
 
-        filename (cond
-                   ;; one export from one shape
-                   (and (= (count ids) 1)
-                        (= (count exports) 1)
-                        (not (empty (:suffix (first exports)))))
-                   (str
-                    first-object-name
-                    (:suffix (first exports)))
+        on-download-error
+        (fn [cause])
 
-                   ;; multiple exports from one shape
-                   (and (= (count ids) 1)
-                        (> (count exports) 1))
-                   first-object-name
+        on-download-success
+        (fn [_])
 
-                   :else
-                   (:name page))
+        on-download
+        (mf/use-fn
+         (mf/deps ids page-id file-id exports)
+         (fn [event]
+           (dom/prevent-default event)
+           (if (= :multiple exports)
+             (st/emit! (modal/show {:type :export-shapes :shape-ids ids}))
 
-        export-in-progress? (mf/deref refs/export-in-progress?)
-        on-download (use-download-export-by-id ids filename page-id file-id exports)
+             ;; in other all cases we only allowed to have a single
+             ;; shape-id because multiple shape-ids are handled
+             ;; separatelly by the export-modal.
+             (let [defaults {:page-id page-id
+                             :file-id file-id
+                             :object-id (first ids)}
+                   exports  (mapv #(merge % defaults) exports)]
+               (if (= 1 (count exports))
+                 (st/emit! (dwe/request-simple-export
+                            (with-meta {:export (first exports)
+                                        :filename filename}
+                              {:on-success on-download-success
+                               :on-error on-download-error})))
+                 (st/emit! (dwe/request-multiple-export
+                            (with-meta {:exports exports
+                                        :filename filename
+                                        :file-id file-id
+                                        :page-id page-id}
+                              {:on-success on-download-success
+                               :on-error on-download-error}))))))))
 
+
+        ;; TODO: maybe move to specific events for avoid to have this logic here?
         add-export
         (mf/use-callback
          (mf/deps ids)
          (fn []
-           (let [xspec {:type :png
-                        :suffix ""
-                        :scale 1}]
+           (let [xspec {:type :png :suffix "" :scale 1}]
              (st/emit! (dch/update-shapes ids
                                           (fn [shape]
                                             (assoc shape :exports (into [xspec] (:exports shape)))))))))
@@ -296,9 +319,7 @@
                                                               (mapv second)))
 
                  remove (fn [shape] (update shape :exports remove-fill-by-index position))]
-             (st/emit! (dch/update-shapes
-                        ids
-                        #(remove %))))))
+             (st/emit! (dch/update-shapes ids remove)))))
 
         on-scale-change
         (mf/use-callback
@@ -383,10 +404,10 @@
             i/minus]])
 
         [:div.btn-icon-dark.download-button
-         {:on-click (when-not export-in-progress? on-download)
+         {:on-click (when-not in-progress? on-download)
           :class (dom/classnames
-                  :btn-disabled export-in-progress?)
-          :disabled export-in-progress?}
-         (if export-in-progress?
+                  :btn-disabled in-progress?)
+          :disabled in-progress?}
+         (if in-progress?
            (tr "workspace.options.exporting-object")
            (tr "workspace.options.export-object" (c (count ids))))]])]))
