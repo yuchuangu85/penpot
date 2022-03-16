@@ -30,6 +30,7 @@
 - Fix color palette animation [Taiga #2852](https://tree.taiga.io/project/penpot/issue/2852)
 - Fix display code icon on preview hover [Taiga #2838](https://tree.taiga.io/project/penpot/us/2838)
 - Fix problems moving layers [Taiga #2979](https://tree.taiga.io/project/penpot/issue/2979)
+- Fix crash on Safari when displaying viewer [#1522](https://github.com/penpot/penpot/issues/1522)
 
 ### :arrow_up: Deps updates
 ### :heart: Community contributions by (Thank you!)
