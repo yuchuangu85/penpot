@@ -51,3 +51,25 @@
      (into (d/ordered-set)
            (filter selectable?)
            selected))))
+
+(defn get-local-file
+  "Get the data content of the file you are currently working with."
+  [state]
+  (get state :workspace-data))
+
+(defn get-file
+  [state file-id]
+  "Get the data content of the given file (it may be the current file
+  or one library)."
+  (if (= file-id (:current-file-id state))
+    (get state :workspace-data)
+    (get-in state [:workspace-libraries file-id :data])))
+
+(defn get-libraries
+  "Retrieve all libraries, including the local file."
+  [state]
+  (let [{:keys [id] :as local} (:workspace-data state)]
+    (-> (:workspace-libraries state)
+        (assoc id {:id id
+                   :data local}))))
+

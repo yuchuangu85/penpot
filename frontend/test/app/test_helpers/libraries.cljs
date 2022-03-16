@@ -10,6 +10,7 @@
    [app.common.pages.helpers :as cph]
    [app.main.data.workspace :as dw]
    [app.main.data.workspace.libraries-helpers :as dwlh]
+   [app.main.data.workspace.state-helpers :as wsh]
    [app.test-helpers.pages :as thp]))
 
 ;; ---- Helpers to manage libraries and synchronization
@@ -85,7 +86,7 @@
   (let [page          (thp/current-page state)
         root-inst     (cph/get-shape page root-inst-id)
 
-        libs          (dwlh/get-libraries state)
+        libs          (wsh/get-libraries state)
         component     (cph/get-component libs (:component-id root-inst))
 
         shapes-inst   (cph/get-children-with-self (:objects page) root-inst-id)
@@ -119,7 +120,7 @@
   "Get the component with the given id and all its shapes." 
   [state component-id]
   (let [page        (thp/current-page state)
-        libs        (dwlh/get-libraries state)
+        libs        (wsh/get-libraries state)
         component   (cph/get-component libs component-id)
         root-main   (cph/get-component-root component)
         shapes-main (cph/get-children-with-self (:objects component) (:id root-main))]

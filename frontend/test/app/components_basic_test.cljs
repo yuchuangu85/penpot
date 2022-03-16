@@ -50,7 +50,7 @@
                         new-state
                         (:parent-id shape1))
 
-                      file (dwlh/get-local-file new-state)]
+                      file (wsh/get-local-file new-state)]
 
                   (t/is (= (:name shape1) "Rect-1"))
                   (t/is (= (:name group) "Rect-2"))
@@ -88,7 +88,7 @@
                      new-state
                      (:parent-id shape1))
 
-                    file (dwlh/get-local-file new-state)]
+                    file (wsh/get-local-file new-state)]
 
                 (t/is (= (:name shape1) "Rect-1"))
                 (t/is (= (:name group) "Component-1"))
@@ -133,7 +133,7 @@
                       new-state
                       (:parent-id shape1))
 
-                    file   (dwlh/get-local-file new-state)]
+                    file   (wsh/get-local-file new-state)]
 
                 (t/is (= (:name group) "Component-1"))
                 (t/is (= (:name shape1) "Rect-1"))
@@ -186,7 +186,7 @@
                      new-state
                      (thp/id :group1))
 
-                   file   (dwlh/get-local-file new-state)]
+                   file   (wsh/get-local-file new-state)]
 
                (t/is (= (:name shape1) "Rect-1"))
                (t/is (= (:name shape2) "Rect-2"))
@@ -211,7 +211,7 @@
                    (thp/sample-page)
                    (thp/sample-shape :shape1 :rect
                                      {:name "Rect-1"})
-                   (thp/make-component :instance1
+                   (thp/make-component :instance1 :component-1
                                        [(thp/id :shape1)]))
 
          instance1 (thp/get-shape state :instance1)
@@ -228,7 +228,7 @@
              ; [Renamed]
              ; Renamed component
              ;   Rect-1
-             (let [libs      (dwlh/get-libraries new-state)
+             (let [libs      (wsh/get-libraries new-state)
                    component (cph/get-component libs
                                                 (:component-file instance1)
                                                 (:component-id instance1))]
@@ -247,7 +247,7 @@
                    (thp/sample-page)
                    (thp/sample-shape :shape1 :rect
                                      {:name "Rect-1"})
-                   (thp/make-component :instance1
+                   (thp/make-component :instance1 :component-1
                                        [(thp/id :shape1)]))
 
          instance1    (thp/get-shape state :instance1)
@@ -304,10 +304,10 @@
                    (thp/sample-page)
                    (thp/sample-shape :shape1 :rect
                                      {:name "Rect-1"})
-                   (thp/make-component :instance1
+                   (thp/make-component :instance1 :component-1
                                        [(thp/id :shape1)]))
 
-         file (dwlh/get-local-file state)
+         file (wsh/get-local-file state)
 
          instance1    (thp/get-shape state :instance1)
          component-id (:component-id instance1)
@@ -326,7 +326,7 @@
                      new-state
                      (:id instance1))
 
-                   libs      (dwlh/get-libraries new-state)
+                   libs      (wsh/get-libraries new-state)
                    component (cph/get-component libs
                                                 (:component-file instance1)
                                                 (:component-id instance1))]
@@ -348,10 +348,10 @@
                    (thp/sample-page)
                    (thp/sample-shape :shape1 :rect
                                      {:name "Rect-1"})
-                   (thp/make-component :instance1
+                   (thp/make-component :instance1 :component-1
                                        [(thp/id :shape1)]))
 
-         file         (dwlh/get-local-file state)
+         file         (wsh/get-local-file state)
          instance1    (thp/get-shape state :instance1)
          component-id (:component-id instance1)
 
@@ -402,7 +402,7 @@
                    (thp/sample-page)
                    (thp/sample-shape :shape1 :rect
                                      {:name "Rect-1"})
-                   (thp/make-component :instance1
+                   (thp/make-component :instance1 :component-1
                                        [(thp/id :shape1)]))
 
          instance1    (thp/get-shape state :instance1)
@@ -442,7 +442,7 @@
                     (thp/sample-shape :shape1 :rect
                                       {:name "Rect-1"}))
 
-          file         (dwlh/get-local-file state)
+          file         (wsh/get-local-file state)
           instance1    (thp/get-shape state :instance1)
           component-id (:component-id instance1)
 
@@ -499,14 +499,14 @@
                    (thp/sample-page)
                    (thp/sample-shape :shape1 :rect
                                      {:name "Rect-1"})
-                   (thp/make-component :instance1
+                   (thp/make-component :instance1 :component-1
                                        [(thp/id :shape1)])
                    (thp/group-shapes :group1
                                      [(thp/id :instance1)])
-                   (thp/make-component :instance2
+                   (thp/make-component :instance2 :component-2
                                        [(thp/id :group1)]))
 
-         file         (dwlh/get-local-file state)
+         file         (wsh/get-local-file state)
          instance1    (thp/get-shape state :instance1)
          instance2    (thp/get-shape state :instance2)
          component-id (:component-id instance2)
