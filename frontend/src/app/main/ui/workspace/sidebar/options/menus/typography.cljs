@@ -465,6 +465,13 @@
 
         name-ref (mf/use-ref (:name typography))
 
+        router (mf/deref refs/router)
+        url (rt/resolve router :workspace
+                        {:project-id (:project-id file)
+                         :file-id (:id file)}
+                        {:page-id (get-in file [:data :pages 0])})
+
+
         on-name-blur
         (mf/use-callback
          (mf/deps on-change)
@@ -473,12 +480,6 @@
              (when-not (str/blank? content)
                (let [[path name] (cph/parse-path-name content)]
                  (on-change {:name name :path path}))))))
-
-        handle-go-to-edit
-        (fn []
-          (let [pparams {:project-id (:project-id file)
-                         :file-id (:id file)}]
-            (st/emit! (rt/nav :workspace pparams))))
 
         on-name-change
         (mf/use-callback
@@ -576,9 +577,11 @@
           [:span.label (tr "workspace.assets.typography.text-transform")]
           [:span (:text-transform typography)]]
 
-         [:div.go-to-lib-button
-          {:on-click handle-go-to-edit}
-          (tr "workspace.assets.typography.go-to-edit")]]
+         [:div.row-flex
+          [:a.go-to-lib-button {:href (str "#" url)
+               :target "_blank"
+               :on-click dom/stop-propagation}
+           (tr "workspace.assets.typography.go-to-edit")]]]
 
         [:*
          [:div.element-set-content
