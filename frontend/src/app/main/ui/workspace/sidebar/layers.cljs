@@ -311,11 +311,16 @@
                  (mf/deps objects)
                  #(strip-objects objects))
 
-        reparented-objects (->> objects
-                            (map #(assoc {} (key %) (assoc (val %) :parent-id uuid/zero :shapes nil)))
-                            (into {}))
-        
-        reparented-objects (update-in reparented-objects [uuid/zero] assoc :shapes (keys reparented-objects))
+        reparented-objects (d/mapm (fn [key val]
+                                     (assoc val :parent-id uuid/zero :shapes nil))
+                                   objects)
+
+        reparented-shapes (->> reparented-objects
+                               keys
+                               (filter #(not= uuid/zero %))
+                               vec)
+
+        reparented-objects (update-in reparented-objects [uuid/zero] assoc :shapes reparented-shapes)
 
         objects (if (= "" search)
                   objects
@@ -323,6 +328,7 @@
                                      (str/includes? (str/lower (:name (val %))) search)
                                      (= uuid/zero (key %)))
                                    reparented-objects)))]
+    
     [:& layers-tree {:objects objects}]))
 
 
@@ -336,7 +342,9 @@
         objects (hooks/with-focus-objects (:objects page) focus)
         title (when (= 1 (count focus)) (get-in objects [(first focus) :name]))
         show-search-box  (mf/use-state false)
+        show-filters-menu  (mf/use-state false)
         search-text  (mf/use-state "")
+        active-filters (mf/use-state {:artboard "Artboards" :group "Groups" :text "Texts"})
 
         on-scroll
         (fn [event]
@@ -354,11 +362,20 @@
         clear-search-text #(reset! search-text "")
         update-search-text (fn [event]
                              (let [value (-> event dom/get-target dom/get-value)]
-                             (reset! search-text value)))
-        toggle-search (fn[]
+                               (reset! search-text value)))
+        toggle-search (fn []
                         (reset! search-text "")
-                        (reset! show-search-box (not @show-search-box))                        
-                        )]
+                        (reset! show-search-box (not @show-search-box)))
+        toggle-filters #(reset! show-filters-menu (not @show-filters-menu))
+
+
+        remove-filter
+        (mf/use-callback
+         (mf/deps @active-filters)
+         (fn [key]
+           (fn [event]
+             (reset! active-filters (dissoc @active-filters key)))))]
+    
 
     [:div#layers.tool-window
      (if (d/not-empty? focus)
@@ -366,29 +383,46 @@
         [:div.focus-title
          [:button.back-button
           {:on-click #(st/emit! (dw/toggle-focus-mode))}
-          i/arrow-slide ]
+          i/arrow-slide]
          [:span (or title (tr "workspace.focus.selection"))]
          [:div.focus-mode (tr "workspace.focus.focus-mode")]]]
 
 
        (if @show-search-box
-         [:div.tool-window-bar.search
-          [:span.search-box
-           [:span.filter i/icon-filter]
-           [:span
-            [:input {:on-change update-search-text
-                     :value @search-text}]]
-           (when (not (= "" @search-text))
-             [:span.clear {:on-click clear-search-text} i/exclude]
-             )]
-          [:span{:on-click toggle-search} i/cross ]]
+         [:*
+          [:div.tool-window-bar.search
+           [:span.search-box
+            [:span.filter {:on-click toggle-filters} i/icon-filter]
+            [:span
+             [:input {:on-change update-search-text
+                      :value @search-text
+                      :auto-focus @show-search-box}]]
+            (when (not (= "" @search-text))
+              [:span.clear {:on-click clear-search-text} i/exclude])]
+           [:span {:on-click toggle-search} i/cross]
+           ]
+          [:div.active-filters
+           (for [filter @active-filters]
+             [:span {:on-click (remove-filter (key filter))}
+              (val filter) i/cross])
+           ]
+          
+
+          (when @show-filters-menu
+            [:div.filters-container
+             [:span i/artboard (tr "workspace.sidebar.layers.frames")]
+             [:span i/folder (tr "workspace.sidebar.layers.groups")]
+             [:span i/mask (tr "workspace.sidebar.layers.masks")]
+             [:span i/component (tr "workspace.sidebar.layers.components")]
+             [:span i/text (tr "workspace.sidebar.layers.texts")]
+             [:span i/image (tr "workspace.sidebar.layers.images")]
+             [:span i/curve (tr "workspace.sidebar.layers.shapes")]])]
 
          [:div.tool-window-bar
           [:span (:name page)]
-          [:span {:on-click toggle-search} i/search ]]))
+          [:span {:on-click toggle-search} i/search]]))
 
      [:div.tool-window-content {:on-scroll on-scroll}
       [:& layers-tree-wrapper {:key (:id page)
                                :objects objects
-                               :search @search-text}]]
-     ]))
+                               :search @search-text}]]]))
