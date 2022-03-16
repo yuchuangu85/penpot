@@ -204,18 +204,20 @@
            (assoc :index index))
 
          mk-undo-change
-         (fn [change-set shape]
-           (d/preconj
-             change-set
-             {:type :mov-objects
-              :page-id (::page-id (meta changes))
-              :parent-id (:parent-id shape)
-              :shapes [(:id shape)]
-              :index (cph/get-position-on-parent objects (:id shape))}))]
-
+         (fn [shape]
+           (let [old-idx (cph/get-position-on-parent objects (:id shape))
+                 before-id (get-in objects [(:parent-id shape) :shapes (dec old-idx)])]
+             (d/without-nils
+              {:type :mov-objects
+               :page-id (::page-id (meta changes))
+               :parent-id (:parent-id shape)
+               :shapes [(:id shape)]
+               :before-id before-id
+               :index (when-not before-id 0)})))
+         undo-moves (->> shapes (mapv mk-undo-change))]
      (-> changes
          (update :redo-changes conj set-parent-change)
-         (update :undo-changes #(reduce mk-undo-change % shapes))
+         (update :undo-changes #(d/concat-vec undo-moves %))
          (apply-changes-local)))))
 
 (defn update-shapes

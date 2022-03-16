@@ -21,6 +21,7 @@
 (s/def ::page-id uuid?)
 (s/def ::component-id uuid?)
 (s/def ::name string?)
+(s/def ::before-id uuid?)
 
 (defmulti operation-spec :type)
 
@@ -95,7 +96,7 @@
 
 (defmethod change-spec :mov-objects [_]
   (s/and (s/keys :req-un [::parent-id ::shape/shapes]
-                 :opt-un [::page-id ::component-id ::index])
+                 :opt-un [::page-id ::component-id ::index ::before-id])
          valid-container-id?))
 
 (defmethod change-spec :add-page [_]

@@ -386,6 +386,21 @@
               (reduce red-fn cur-idx (reverse (:shapes object)))))]
     (into {} (rec-index '() uuid/zero))))
 
+(defn shape-to-index
+  "Retrives an index where the keys are the shape id and the value its index
+  in the layers structure"
+  [objects]
+  (letfn [(calculate-index [result id]
+            (let [[_ prev-idx] (first result)
+                  prev-idx (or prev-idx 0)
+                  result (conj result [id (inc prev-idx)])]
+              (rec-index result id)))
+
+          (rec-index [result shape-id]
+            (let [children (get-in objects [shape-id :shapes])]
+              (->> children reverse (reduce calculate-index result))))]
+    (into {} (rec-index '() uuid/zero))))
+
 (defn expand-region-selection
   "Given a selection selects all the shapes between the first and last in
    an indexed manner (shift selection)"

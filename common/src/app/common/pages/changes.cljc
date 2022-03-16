@@ -201,7 +201,7 @@
       (d/update-in-when data [:components component-id :objects] reg-objects))))
 
 (defmethod process-change :mov-objects
-  [data {:keys [parent-id shapes index page-id component-id ignore-touched]}]
+  [data {:keys [parent-id shapes index before-id page-id component-id ignore-touched]}]
   (letfn [(calculate-invalid-targets [objects shape-id]
             (let [reduce-fn #(into %1 (calculate-invalid-targets objects %2))]
               (->> (get-in objects [shape-id :shapes])
@@ -213,27 +213,34 @@
                    (not (invalid-targets parent-id))
                    (cph/valid-frame-target? objects parent-id shape-id))))
 
-          (insert-items [prev-shapes index shapes]
+          (insert-items [prev-shapes index before-id shapes]
             (let [prev-shapes (or prev-shapes [])]
-              (if index
+              (cond
+                index
                 (cph/insert-at-index prev-shapes index shapes)
+
+                before-id
+                (let [idx (d/index-of prev-shapes before-id)]
+                  (cph/insert-at-index prev-shapes (inc idx) shapes))
+
+                :else
                 (cph/append-at-the-end prev-shapes shapes))))
 
-          (check-insert-items [prev-shapes parent index shapes]
+          (check-insert-items [prev-shapes parent index before-id shapes]
             (if-not (:masked-group? parent)
-              (insert-items prev-shapes index shapes)
+              (insert-items prev-shapes index before-id shapes)
               ;; For masked groups, the first shape is the mask
               ;; and it cannot be moved.
               (let [mask-id         (first prev-shapes)
                     other-ids       (rest prev-shapes)
                     not-mask-shapes (without-obj shapes mask-id)
                     new-index       (if (nil? index) nil (max (dec index) 0))
-                    new-shapes      (insert-items other-ids new-index not-mask-shapes)]
+                    new-shapes      (insert-items other-ids new-index before-id not-mask-shapes)]
                 (into [mask-id] new-shapes))))
 
-          (add-to-parent [parent index shapes]
+          (add-to-parent [parent index before-id shapes]
             (let [parent (-> parent
-                             (update :shapes check-insert-items parent index shapes)
+                             (update :shapes check-insert-items parent index before-id shapes)
                              ;; We need to ensure that no `nil` in the
                              ;; shapes list after adding all the
                              ;; incoming shapes to the parent.
@@ -300,7 +307,7 @@
               (if (and valid? (seq shapes))
                 (as-> objects $
                   ;; Add the new shapes to the parent object.
-                  (d/update-when $ parent-id #(add-to-parent % index shapes))
+                  (d/update-when $ parent-id #(add-to-parent % index before-id shapes))
 
                   ;; Update each individual shape link to the new parent
                   (reduce update-parent-id $ shapes)

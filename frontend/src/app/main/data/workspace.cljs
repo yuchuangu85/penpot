@@ -611,15 +611,23 @@
 (defn relocate-shapes-changes [it objects parents parent-id page-id to-index ids
                                groups-to-delete groups-to-unmask shapes-to-detach
                                shapes-to-reroot shapes-to-deroot shapes-to-unconstraint]
-  (let [shapes (map (d/getf objects) ids)]
+  (let [shapes (map (d/getf objects) ids)
+
+        ;; We narrow by frames so we don't have to index the whole objects tree
+        ;; we don't need an absolute index but a relative one
+        parent-frame-id (or (get-in objects [parent-id :frame-id]) uuid/zero)
+        frames-ids (into #{parent-frame-id} (keep :frame-id) shapes)
+        indexed-shapes (cph/shape-to-index objects #_(select-keys objects frames-ids))
+
+        shapes (->> shapes
+                    (sort-by (fn [s] (get indexed-shapes (:id s))))
+                    (reverse))]
 
     (-> (pcb/empty-changes it page-id)
         (pcb/with-objects objects)
 
         ; Move the shapes
-        (pcb/change-parent parent-id
-                           (reverse shapes)
-                           to-index)
+        (pcb/change-parent parent-id shapes to-index)
 
         ; Remove empty groups
         (pcb/remove-objects groups-to-delete)
